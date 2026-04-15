@@ -136,11 +136,15 @@ async function callGemini(input: ParserInput, petNames: string[]): Promise<unkno
     };
     const textPart = { text: "Transcreva e extraia os registros deste áudio." };
     const result = await model.generateContent([textPart, audioPart]);
-    return JSON.parse(result.response.text());
+    const raw = result.response.text();
+    log.info("parse.gemini_raw_audio", { raw: raw.slice(0, 2000) });
+    return JSON.parse(raw);
   }
 
   const result = await model.generateContent(`Message: ${input.text}`);
-  return JSON.parse(result.response.text());
+  const raw = result.response.text();
+  log.info("parse.gemini_raw", { raw: raw.slice(0, 2000) });
+  return JSON.parse(raw);
 }
 
 export async function parseInput(
@@ -149,17 +153,39 @@ export async function parseInput(
 ): Promise<ParsedIntents> {
   try {
     const json = await callGemini(input, petNames);
-    const root = (json as { intents?: unknown[] } | null) ?? null;
-    const rawIntents = root?.intents ?? [];
 
-    // Validate each intent; drop malformed ones so one bad intent doesn't nuke the whole message.
+    // Accept both the expected { intents: [...] } and a bare array Gemini sometimes emits
+    // despite the responseSchema, plus a bare object (single intent).
+    let rawIntents: unknown[] = [];
+    if (Array.isArray(json)) {
+      rawIntents = json;
+    } else if (json && typeof json === "object") {
+      const obj = json as Record<string, unknown>;
+      if (Array.isArray(obj.intents)) {
+        rawIntents = obj.intents;
+      } else if (typeof obj.intent === "string") {
+        // Gemini returned a single flat intent — wrap it
+        rawIntents = [obj];
+      }
+    }
+
+    log.info("parse.intents_pre_validation", {
+      count: rawIntents.length,
+      preview: JSON.stringify(rawIntents).slice(0, 500),
+    });
+
     const good: ParsedIntents = [];
+    const rejected: { raw: unknown; issue: string }[] = [];
     for (const raw of rawIntents) {
       const r = ParsedIntentSchema.safeParse(raw);
       if (r.success) good.push(r.data);
+      else rejected.push({ raw, issue: r.error.issues[0]?.message ?? "invalid" });
     }
 
-    // If nothing parsed, return a single unknown intent so the caller can reply sensibly.
+    if (rejected.length > 0) {
+      log.warn("parse.intents_rejected", { rejected });
+    }
+
     if (good.length === 0) {
       return [{ intent: "unknown", reason: "Não entendi a mensagem." }];
     }
