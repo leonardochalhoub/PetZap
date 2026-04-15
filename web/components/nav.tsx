@@ -6,6 +6,7 @@ import { Brand } from "./brand";
 import { ThemeToggle } from "./theme-toggle";
 import { LocaleToggle } from "./locale-toggle";
 import { TelegramIcon } from "./telegram-icon";
+import { isCurrentUserAdmin } from "@/lib/admin";
 
 export async function Nav() {
   const supabase = await createClient();
@@ -13,6 +14,7 @@ export async function Nav() {
     data: { user },
   } = await supabase.auth.getUser();
   const t = await getDictionary();
+  const isAdmin = user ? await isCurrentUserAdmin() : false;
 
   return (
     <header className="sticky top-0 z-10 border-b border-stone-200/70 bg-white/80 backdrop-blur dark:border-zinc-800/70 dark:bg-zinc-950/80">
@@ -33,6 +35,14 @@ export async function Nav() {
               <TelegramIcon className="h-4 w-4" />
               {t.nav.telegram}
             </Link>
+            {isAdmin ? (
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-amber-900 hover:bg-amber-100 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/40"
+              >
+                Admin
+              </Link>
+            ) : null}
           </div>
         </div>
         <div className="flex items-center gap-2">
