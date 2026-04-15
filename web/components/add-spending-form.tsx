@@ -6,6 +6,7 @@ import type { ActionResult } from "@/lib/actions/auth";
 import { SubmitButton } from "./submit-button";
 import { useT } from "@/i18n/client";
 import type { SpendingCategoryKey } from "@/i18n/messages/en";
+import { todayIsoLocal } from "@/lib/utils/dates";
 
 const CATEGORIES: SpendingCategoryKey[] = [
   "food",
@@ -94,7 +95,7 @@ export function AddSpendingForm({ petId }: { petId: string }) {
             name="spent_at"
             type="date"
             required
-            defaultValue={new Date().toISOString().slice(0, 10)}
+            defaultValue={todayIsoLocal()}
             className={inputCls}
           />
         </div>
@@ -132,7 +133,7 @@ export function AddSpendingForm({ petId }: { petId: string }) {
                 required={repeat}
                 value={nextDue}
                 onChange={(e) => setNextDue(e.target.value)}
-                min={new Date().toISOString().slice(0, 10)}
+                min={todayIsoLocal()}
                 className={inputCls}
               />
               <p className="mt-1 text-xs text-stone-500 dark:text-zinc-400">{t.spendings.repeatHint}</p>

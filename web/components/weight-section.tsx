@@ -9,6 +9,7 @@ import {
   useTransition,
 } from "react";
 import { addWeight, deleteWeight, updateWeight } from "@/lib/actions/weights";
+import { todayIsoLocal, formatIsoDateLocal } from "@/lib/utils/dates";
 import type { ActionResult } from "@/lib/actions/auth";
 import { SubmitButton } from "./submit-button";
 import { useT, useLocale } from "@/i18n/client";
@@ -27,20 +28,7 @@ const labelCls =
   "mb-1 block text-xs font-medium text-stone-700 dark:text-zinc-300";
 
 function formatDate(iso: string, locale: string): string {
-  try {
-    // Parse YYYY-MM-DD as a LOCAL date, not UTC midnight. Using `new Date(iso)`
-    // treats it as UTC and shifts the display by up to a day in non-UTC locales.
-    const parts = iso.split("-");
-    const y = Number(parts[0]);
-    const m = Number(parts[1]);
-    const d = Number(parts[2]);
-    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return iso;
-    return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(
-      new Date(y, m - 1, d),
-    );
-  } catch {
-    return iso;
-  }
+  return formatIsoDateLocal(iso, locale);
 }
 
 export function WeightSection({
@@ -77,7 +65,7 @@ export function WeightSection({
     const fd = new FormData(e.currentTarget);
     const weightStr = String(fd.get("weight_kg") ?? "").replace(",", ".");
     const weightNum = Number(weightStr);
-    const date = String(fd.get("measured_at") ?? "") || new Date().toISOString().slice(0, 10);
+    const date = String(fd.get("measured_at") ?? "") || todayIsoLocal();
     if (!Number.isFinite(weightNum) || weightNum <= 0 || weightNum >= 200) return;
     // Optimistic insert
     const tempId = `temp-${Date.now()}`;
@@ -143,7 +131,7 @@ export function WeightSection({
               id="w-date"
               name="measured_at"
               type="date"
-              defaultValue={new Date().toISOString().slice(0, 10)}
+              defaultValue={todayIsoLocal()}
               className={inputCls}
             />
           </div>

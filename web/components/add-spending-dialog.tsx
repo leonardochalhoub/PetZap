@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { addSpendingMulti } from "@/lib/actions/spendings";
+import { todayIsoLocal } from "@/lib/utils/dates";
 import type { ActionResult } from "@/lib/actions/auth";
 import { useT } from "@/i18n/client";
 import { SubmitButton } from "./submit-button";
@@ -249,7 +250,7 @@ export function AddSpendingDialog({
               name="spent_at"
               type="date"
               required
-              defaultValue={new Date().toISOString().slice(0, 10)}
+              defaultValue={todayIsoLocal()}
               className={inputCls}
             />
           </div>
@@ -288,7 +289,7 @@ export function AddSpendingDialog({
                   required={repeat}
                   value={nextDue}
                   onChange={(e) => setNextDue(e.target.value)}
-                  min={new Date().toISOString().slice(0, 10)}
+                  min={todayIsoLocal()}
                   className={inputCls}
                 />
                 <p className="mt-1 text-xs text-stone-500 dark:text-zinc-400">{t.spendings.repeatHint}</p>

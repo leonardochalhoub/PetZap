@@ -5,6 +5,7 @@ import { addVaccine } from "@/lib/actions/vaccines";
 import type { ActionResult } from "@/lib/actions/auth";
 import { SubmitButton } from "./submit-button";
 import { useT } from "@/i18n/client";
+import { plusYearsIsoLocal } from "@/lib/utils/dates";
 
 const inputCls =
   "w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder-stone-400 focus:border-stone-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-zinc-400";
@@ -13,10 +14,7 @@ const labelCls =
   "mb-1 block text-xs font-medium text-stone-700 dark:text-zinc-300";
 
 function plusOneYear(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  if (isNaN(d.getTime())) return iso;
-  d.setFullYear(d.getFullYear() + 1);
-  return d.toISOString().slice(0, 10);
+  return plusYearsIsoLocal(iso, 1);
 }
 
 export function AddVaccineForm({ petId }: { petId: string }) {
