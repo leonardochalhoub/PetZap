@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 /**
- * Zod schemas for parsed WhatsApp message intents.
- * Gemini Flash returns structured output matching one of these variants.
+ * Structured intents extracted from a user message (text or audio).
+ * The parser returns an ARRAY — a single message can carry multiple intents
+ * (e.g. "Rex tomou vacina antirrábica + gastei 50 com ração").
  */
 
 export const SpendingCategory = z.enum([
@@ -12,6 +13,7 @@ export const SpendingCategory = z.enum([
   "grooming",
   "medicine",
   "accessories",
+  "hygiene",
   "other",
 ]);
 export type SpendingCategory = z.infer<typeof SpendingCategory>;
@@ -21,10 +23,7 @@ export const VaccineIntentSchema = z.object({
   pet_name: z.string().min(1),
   vaccine_name: z.string().min(1),
   given_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "ISO date (YYYY-MM-DD)"),
-  next_date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .nullable(),
+  next_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   notes: z.string().optional(),
 });
 export type VaccineIntent = z.infer<typeof VaccineIntentSchema>;
@@ -36,6 +35,8 @@ export const SpendingIntentSchema = z.object({
   category: SpendingCategory,
   spent_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "ISO date (YYYY-MM-DD)"),
   description: z.string().optional(),
+  /** For recurring spendings like medications — ISO date of the next expected purchase/dose. */
+  next_due: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
 });
 export type SpendingIntent = z.infer<typeof SpendingIntentSchema>;
 
@@ -51,3 +52,6 @@ export const ParsedIntentSchema = z.discriminatedUnion("intent", [
   UnknownIntentSchema,
 ]);
 export type ParsedIntent = z.infer<typeof ParsedIntentSchema>;
+
+export const ParsedIntentsSchema = z.array(ParsedIntentSchema);
+export type ParsedIntents = z.infer<typeof ParsedIntentsSchema>;

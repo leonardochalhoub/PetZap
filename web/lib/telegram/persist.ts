@@ -1,32 +1,27 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { parseMessage } from "@/lib/whatsapp/parse";
-import type { ParsedIntent } from "@/lib/whatsapp/schemas";
+import { parseInput, type ParserInput } from "@/lib/whatsapp/parse";
+import type { ParsedIntents, ParsedIntent } from "@/lib/whatsapp/schemas";
 import { sendTelegramText } from "./send";
 import { log } from "@/lib/log";
 
 /**
- * End-to-end processing of an incoming Telegram message.
- * Idempotent on update_id. Returns nothing — reply is sent directly.
+ * End-to-end processing of an incoming Telegram message (text OR voice).
+ * Idempotent on update_id. Sends the reply directly via sendTelegramText.
  *
- * Special commands:
- *   /start <token>  — finalizes web-initiated account linking
- *   /start          — onboarding reply
- *   plain text      — parsed via Gemini, dispatched to vaccine/spending
+ * - /start <token>  → finalize account linking
+ * - /start          → onboarding prompt
+ * - text / audio    → multi-intent parse, execute each, combined reply
  */
 
 type ChatContext = {
   chatId: number;
   updateId: number;
   messageId: number;
-  text: string;
+  input: ParserInput;
   username?: string | null;
   firstName?: string | null;
   lastName?: string | null;
 };
-
-function formatDateBR(iso: string): string {
-  return iso;
-}
 
 function formatAmountBRL(reais: number): string {
   return reais.toLocaleString("pt-BR", {
@@ -66,6 +61,9 @@ export async function processIncomingTelegram(ctx: ChatContext): Promise<void> {
     .maybeSingle();
   if (existing) return;
 
+  // Derive a text representation for storage/diagnostics.
+  const storedText = "text" in ctx.input ? ctx.input.text : "[audio]";
+
   // 2. Insert received row
   const { data: inserted, error: insertErr } = await supabase
     .from("telegram_messages")
@@ -73,7 +71,7 @@ export async function processIncomingTelegram(ctx: ChatContext): Promise<void> {
       update_id: ctx.updateId,
       message_id: ctx.messageId,
       chat_id: ctx.chatId,
-      raw_text: ctx.text,
+      raw_text: storedText,
       status: "received",
     })
     .select("id")
@@ -84,34 +82,34 @@ export async function processIncomingTelegram(ctx: ChatContext): Promise<void> {
   }
   const messageRowId = inserted.id;
 
-  const finalize = async (
+  const updateRow = async (patch: Record<string, unknown>) => {
+    await supabase.from("telegram_messages").update(patch).eq("id", messageRowId);
+  };
+
+  const replyAndFinalize = async (
     reply: string,
     opts: {
       status: "parsed" | "replied" | "failed";
-      intent?: "vaccine" | "spending" | "unknown" | "onboarding" | "link";
-      parsed?: ParsedIntent | null;
+      intent?: string | null;
+      parsed?: unknown;
       userId?: string | null;
       error?: string;
     },
   ) => {
-    await supabase
-      .from("telegram_messages")
-      .update({
-        status: opts.status,
-        intent: opts.intent ?? null,
-        parsed_json: { parsed: opts.parsed ?? null, reply },
-        user_id: opts.userId ?? null,
-        error: opts.error ?? null,
-      })
-      .eq("id", messageRowId);
+    await updateRow({
+      status: opts.status,
+      intent: opts.intent ?? null,
+      parsed_json: { parsed: opts.parsed ?? null, reply },
+      user_id: opts.userId ?? null,
+      error: opts.error ?? null,
+    });
     await sendTelegramText(ctx.chatId, reply);
   };
 
-  const trimmed = ctx.text.trim();
-
-  // 3. Handle /start <token> — web-initiated linking
-  if (trimmed.toLowerCase().startsWith("/start")) {
-    const parts = trimmed.split(/\s+/, 2);
+  // 3. Handle /start <token> — web-initiated linking (text only)
+  const textBody = "text" in ctx.input ? ctx.input.text.trim() : "";
+  if (textBody.toLowerCase().startsWith("/start")) {
+    const parts = textBody.split(/\s+/, 2);
     const token = parts[1]?.trim();
 
     if (token) {
@@ -122,8 +120,10 @@ export async function processIncomingTelegram(ctx: ChatContext): Promise<void> {
         .maybeSingle();
 
       if (linkErr || !link) {
-        const reply = "Token de vínculo inválido ou expirado. Gere um novo em /settings/telegram no app.";
-        await finalize(reply, { status: "failed", intent: "link", error: "invalid_token" });
+        await replyAndFinalize(
+          "Token de vínculo inválido ou expirado. Gere um novo em /settings/telegram no app.",
+          { status: "failed", intent: "link", error: "invalid_token" },
+        );
         return;
       }
 
@@ -141,25 +141,29 @@ export async function processIncomingTelegram(ctx: ChatContext): Promise<void> {
         .eq("id", link.id);
 
       if (upErr) {
-        const reply = "Erro ao finalizar o vínculo. Tente novamente.";
-        await finalize(reply, { status: "failed", intent: "link", userId: link.user_id, error: upErr.message });
+        await replyAndFinalize(
+          "Erro ao finalizar o vínculo. Tente novamente.",
+          { status: "failed", intent: "link", userId: link.user_id, error: upErr.message },
+        );
         return;
       }
 
-      const reply =
-        "Vinculado com sucesso! Agora voce pode registrar vacinas e gastos direto por aqui.\n\n" +
-        "Exemplos:\n" +
-        "• <i>Rex tomou vacina antirrabica hoje, proxima em 1 ano</i>\n" +
-        "• <i>Gastei 50 reais com racao pro Rex</i>";
-      await finalize(reply, { status: "replied", intent: "link", userId: link.user_id });
+      await replyAndFinalize(
+        "Vinculado com sucesso! Agora voce pode registrar vacinas e gastos por texto ou audio.\n\n" +
+          "Exemplos:\n" +
+          "• <i>Rex tomou vacina antirrabica hoje, proxima em 1 ano</i>\n" +
+          "• <i>Dora tomou o remedio Cincadem hoje. proxima dose em um mes. Gastei 55 reais</i>\n" +
+          "• Ou mande um audio descrevendo o mesmo.",
+        { status: "replied", intent: "link", userId: link.user_id },
+      );
       return;
     }
 
-    // /start without token — show onboarding
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://pet-zap.vercel.app";
-    const reply =
-      `Ola! Para usar o PetZap, crie sua conta em ${appUrl}/signup e vincule este chat em /settings/telegram.`;
-    await finalize(reply, { status: "replied", intent: "onboarding" });
+    await replyAndFinalize(
+      `Ola! Para usar o PetZap, crie sua conta em ${appUrl}/signup e vincule este chat em /settings/telegram.`,
+      { status: "replied", intent: "onboarding" },
+    );
     return;
   }
 
@@ -173,14 +177,15 @@ export async function processIncomingTelegram(ctx: ChatContext): Promise<void> {
 
   if (!link) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://pet-zap.vercel.app";
-    const reply =
-      `Ola! Este chat ainda nao esta vinculado a uma conta. Acesse ${appUrl}/settings/telegram no app pra vincular.`;
-    await finalize(reply, { status: "replied", intent: "onboarding" });
+    await replyAndFinalize(
+      `Ola! Este chat ainda nao esta vinculado a uma conta. Acesse ${appUrl}/settings/telegram no app pra vincular.`,
+      { status: "replied", intent: "onboarding" },
+    );
     return;
   }
   const userId = link.user_id as string;
 
-  // 5. Fetch user's pets
+  // 5. Fetch pets
   const { data: pets, error: petsErr } = await supabase
     .from("pets")
     .select("id, name")
@@ -188,7 +193,7 @@ export async function processIncomingTelegram(ctx: ChatContext): Promise<void> {
 
   if (petsErr) {
     log.error("telegram.persist.pets_fetch_failed", petsErr);
-    await finalize("Erro ao consultar seus pets. Tente novamente.", {
+    await replyAndFinalize("Erro ao consultar seus pets. Tente novamente.", {
       status: "failed",
       userId,
       error: petsErr.message,
@@ -199,92 +204,103 @@ export async function processIncomingTelegram(ctx: ChatContext): Promise<void> {
   const petList = pets ?? [];
   const petNames = petList.map((p) => p.name as string);
 
-  // 6. Parse via Gemini
-  const parsed = await parseMessage(ctx.text, petNames);
-
-  // 7. Unknown intent
-  if (parsed.intent === "unknown") {
-    const reply =
-      "Desculpe, nao entendi. Tente: <i>Rex tomou vacina antirrabica hoje, proxima em 1 ano</i> ou <i>Gastei 50 reais com racao pro Rex</i>.";
-    await finalize(reply, { status: "replied", intent: "unknown", parsed, userId });
-    return;
-  }
-
-  // 8. Resolve pet
   if (petList.length === 0) {
-    await finalize(
+    await replyAndFinalize(
       "Voce ainda nao tem pets cadastrados. Adicione um pet no app antes de registrar vacinas ou gastos.",
-      { status: "replied", intent: parsed.intent, parsed, userId },
+      { status: "replied", userId },
     );
     return;
   }
 
-  const pet = resolvePetId(
-    petList.map((p) => ({ id: p.id as string, name: p.name as string })),
-    parsed.pet_name,
-  );
+  // 6. Parse (text or audio) into MULTIPLE intents
+  const intents: ParsedIntents = await parseInput(ctx.input, petNames);
 
-  if (!pet) {
-    const nameList = petNames.join(", ");
-    await finalize(
-      `Nao reconheci o pet "${parsed.pet_name}". Seus pets sao: ${nameList}. Pode repetir mencionando o nome exato?`,
-      { status: "replied", intent: parsed.intent, parsed, userId },
-    );
-    return;
-  }
+  // 7. Execute every intent; collect per-intent replies
+  const replyLines: string[] = [];
+  const executed: { intent: ParsedIntent; ok: boolean; line: string }[] = [];
 
-  // 9. Insert intent-specific row
-  if (parsed.intent === "vaccine") {
-    const { error: vErr } = await supabase.from("vaccines").insert({
-      pet_id: pet.id,
-      name: parsed.vaccine_name,
-      given_date: parsed.given_date,
-      next_date: parsed.next_date,
-      notes: parsed.notes ?? null,
-    });
-    if (vErr) {
-      await finalize("Nao consegui salvar a vacina. Tente novamente.", {
-        status: "failed",
-        intent: "vaccine",
-        parsed,
-        userId,
-        error: vErr.message,
-      });
-      return;
+  for (const parsed of intents) {
+    if (parsed.intent === "unknown") {
+      const line =
+        parsed.reason ??
+        "Nao entendi esta parte. Tente: <i>Rex tomou vacina antirrabica hoje</i>.";
+      replyLines.push(`❓ ${line}`);
+      executed.push({ intent: parsed, ok: false, line });
+      continue;
     }
-    const nextPart = parsed.next_date
-      ? ` Proxima dose: ${formatDateBR(parsed.next_date)}.`
-      : "";
-    await finalize(
-      `Anotado: vacina ${parsed.vaccine_name} para ${pet.name} em ${formatDateBR(parsed.given_date)}.${nextPart}`,
-      { status: "parsed", intent: "vaccine", parsed, userId },
+
+    const pet = resolvePetId(
+      petList.map((p) => ({ id: p.id as string, name: p.name as string })),
+      parsed.pet_name,
     );
-    return;
+    if (!pet) {
+      const line = `Nao reconheci o pet "${parsed.pet_name}". Seus pets: ${petNames.join(", ")}.`;
+      replyLines.push(`⚠️ ${line}`);
+      executed.push({ intent: parsed, ok: false, line });
+      continue;
+    }
+
+    if (parsed.intent === "vaccine") {
+      const { error: vErr } = await supabase.from("vaccines").insert({
+        pet_id: pet.id,
+        name: parsed.vaccine_name,
+        given_date: parsed.given_date,
+        next_date: parsed.next_date,
+        notes: parsed.notes ?? null,
+      });
+      if (vErr) {
+        const line = `Falhou salvar vacina ${parsed.vaccine_name} para ${pet.name}.`;
+        replyLines.push(`❌ ${line}`);
+        executed.push({ intent: parsed, ok: false, line });
+      } else {
+        const nextPart = parsed.next_date ? ` (proxima: ${parsed.next_date})` : "";
+        const line = `Vacina <b>${parsed.vaccine_name}</b> para <b>${pet.name}</b> em ${parsed.given_date}${nextPart}.`;
+        replyLines.push(`✅ ${line}`);
+        executed.push({ intent: parsed, ok: true, line });
+      }
+      continue;
+    }
+
+    // spending
+    const amountCents = Math.round(parsed.amount * 100);
+    const { error: sErr } = await supabase.from("spendings").insert({
+      pet_id: pet.id,
+      amount_cents: amountCents,
+      currency: "BRL",
+      category: parsed.category,
+      spent_at: parsed.spent_at,
+      description: parsed.description ?? null,
+      next_due: parsed.next_due ?? null,
+    });
+    if (sErr) {
+      const line = `Falhou salvar gasto para ${pet.name}.`;
+      replyLines.push(`❌ ${line}`);
+      executed.push({ intent: parsed, ok: false, line });
+    } else {
+      const descPart = parsed.description ? ` — ${parsed.description}` : ` (${parsed.category})`;
+      const nextPart = parsed.next_due ? ` • proxima: ${parsed.next_due}` : "";
+      const line = `${formatAmountBRL(parsed.amount)}${descPart} para <b>${pet.name}</b> em ${parsed.spent_at}${nextPart}.`;
+      replyLines.push(`✅ ${line}`);
+      executed.push({ intent: parsed, ok: true, line });
+    }
   }
 
-  // spending
-  const amountCents = Math.round(parsed.amount * 100);
-  const { error: sErr } = await supabase.from("spendings").insert({
-    pet_id: pet.id,
-    amount_cents: amountCents,
-    currency: "BRL",
-    category: parsed.category,
-    spent_at: parsed.spent_at,
-    description: parsed.description ?? null,
+  const allOk = executed.every((e) => e.ok);
+  const replyBody = replyLines.join("\n");
+  const finalStatus: "parsed" | "replied" | "failed" = allOk
+    ? "parsed"
+    : executed.some((e) => e.ok)
+      ? "replied"
+      : "failed";
+
+  // telegram_messages.intent has a CHECK constraint: vaccine|spending|unknown|onboarding|link.
+  // For multi-intent messages, store null and rely on parsed_json for the full array.
+  const intentForRow = intents.length === 1 ? intents[0].intent : null;
+
+  await replyAndFinalize(replyBody, {
+    status: finalStatus,
+    intent: intentForRow,
+    parsed: intents,
+    userId,
   });
-  if (sErr) {
-    await finalize("Nao consegui salvar o gasto. Tente novamente.", {
-      status: "failed",
-      intent: "spending",
-      parsed,
-      userId,
-      error: sErr.message,
-    });
-    return;
-  }
-  const descPart = parsed.description ? ` com ${parsed.description}` : ` (${parsed.category})`;
-  await finalize(
-    `Anotado: ${formatAmountBRL(parsed.amount)}${descPart} para ${pet.name} em ${formatDateBR(parsed.spent_at)}.`,
-    { status: "parsed", intent: "spending", parsed, userId },
-  );
 }
