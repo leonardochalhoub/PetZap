@@ -7,7 +7,7 @@ export const Sex = z.enum(["male", "female"]);
 export type Sex = z.infer<typeof Sex>;
 
 export const SpendingCategory = z.enum([
-  "food", "vet", "toys", "grooming", "medicine", "accessories", "other",
+  "food", "vet", "toys", "grooming", "medicine", "accessories", "hygiene", "other",
 ]);
 export type SpendingCategory = z.infer<typeof SpendingCategory>;
 
