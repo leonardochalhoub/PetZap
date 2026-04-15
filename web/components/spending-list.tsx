@@ -111,6 +111,11 @@ const CATEGORY_KEYS: SpendingCategoryKey[] = [
   "other",
 ];
 
+const inputCls =
+  "w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder-stone-400 focus:border-stone-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-zinc-400";
+
+const labelCls = "mb-1 block text-xs font-medium text-stone-700 dark:text-zinc-300";
+
 function EditSpendingForm({
   petId,
   spending,
@@ -125,102 +130,145 @@ function EditSpendingForm({
     (prev, fd) => updateSpending(spending.id, petId, prev, fd),
     undefined,
   );
-  const [category, setCategory] = useState<string>(spending.category);
+  const [category, setCategory] = useState<SpendingCategoryKey>(
+    spending.category as SpendingCategoryKey,
+  );
+  const [repeat, setRepeat] = useState<boolean>(Boolean(spending.next_due));
+  const [nextDue, setNextDue] = useState<string>(spending.next_due ?? "");
+  const isRepeatable = category === "medicine";
 
   if (state?.data) {
     queueMicrotask(onDone);
   }
 
-  const inputClass =
-    "w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm text-stone-900 placeholder-stone-400 focus:border-stone-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-zinc-400";
-
   const currentAmount = (spending.amount_cents / 100).toFixed(2);
-  // next_due only applies to medications — mirror the Add dialog's behaviour.
-  const showNextDue = category === "medicine";
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form action={formAction} className="space-y-4">
       <input type="hidden" name="currency" value={spending.currency} />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block text-xs text-stone-600 dark:text-zinc-400">
-          {t.spendings.amountLabel}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label htmlFor={`ed-amt-${spending.id}`} className={labelCls}>
+            {t.spendings.amount}
+          </label>
           <input
+            id={`ed-amt-${spending.id}`}
             name="amount"
             type="number"
+            inputMode="decimal"
             step="0.01"
             min="0"
-            inputMode="decimal"
             required
             defaultValue={currentAmount}
-            className={`mt-1 ${inputClass}`}
+            placeholder={t.placeholders.spendingAmount}
+            className={inputCls}
           />
-        </label>
-        <label className="block text-xs text-stone-600 dark:text-zinc-400">
-          {t.spendings.categoryLabel}
+        </div>
+        <div>
+          <label htmlFor={`ed-cat-${spending.id}`} className={labelCls}>
+            {t.spendings.category}
+          </label>
           <select
+            id={`ed-cat-${spending.id}`}
             name="category"
             required
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className={`mt-1 ${inputClass}`}
+            onChange={(e) => setCategory(e.target.value as SpendingCategoryKey)}
+            className={inputCls}
           >
-            {CATEGORY_KEYS.map((k) => (
-              <option key={k} value={k}>
-                {t.spendingCategories[k]}
+            {CATEGORY_KEYS.map((c) => (
+              <option key={c} value={c}>
+                {t.spendingCategories[c]}
               </option>
             ))}
           </select>
-        </label>
-        <label className="block text-xs text-stone-600 dark:text-zinc-400">
-          {t.spendings.spentAtLabel}
+        </div>
+        <div>
+          <label htmlFor={`ed-date-${spending.id}`} className={labelCls}>
+            {t.spendings.date}
+          </label>
           <input
+            id={`ed-date-${spending.id}`}
             name="spent_at"
             type="date"
             required
             defaultValue={spending.spent_at}
-            className={`mt-1 ${inputClass}`}
+            className={inputCls}
           />
-        </label>
-        {showNextDue ? (
-          <label className="block text-xs text-stone-600 dark:text-zinc-400">
-            {t.spendings.nextDue}
-            <input
-              name="next_due"
-              type="date"
-              defaultValue={spending.next_due ?? ""}
-              className={`mt-1 ${inputClass}`}
-            />
+        </div>
+        <div>
+          <label htmlFor={`ed-desc-${spending.id}`} className={labelCls}>
+            {t.spendings.description}
           </label>
-        ) : (
-          <input type="hidden" name="next_due" value="" />
-        )}
-        <label className="block text-xs text-stone-600 dark:text-zinc-400 sm:col-span-2">
-          {t.spendings.descriptionLabel}
           <input
+            id={`ed-desc-${spending.id}`}
             name="description"
-            type="text"
+            maxLength={500}
             defaultValue={spending.description ?? ""}
-            className={`mt-1 ${inputClass}`}
+            placeholder={t.placeholders.spendingDescriptionByCategory[category]}
+            className={inputCls}
           />
-        </label>
+        </div>
       </div>
+
+      {isRepeatable ? (
+        <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 dark:border-zinc-800 dark:bg-zinc-950/40">
+          <label className="inline-flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={repeat}
+              onChange={(e) => setRepeat(e.target.checked)}
+              className="h-4 w-4 rounded border-stone-300 text-stone-900 focus:ring-stone-900 dark:border-zinc-700"
+            />
+            <span className="text-sm font-medium text-stone-900 dark:text-zinc-100">
+              {t.spendings.repeat}
+            </span>
+          </label>
+          {repeat ? (
+            <div className="mt-2">
+              <label htmlFor={`ed-next-${spending.id}`} className={labelCls}>
+                {t.spendings.nextDue}
+              </label>
+              <input
+                id={`ed-next-${spending.id}`}
+                name="next_due"
+                type="date"
+                required={repeat}
+                value={nextDue}
+                onChange={(e) => setNextDue(e.target.value)}
+                className={inputCls}
+              />
+              <p className="mt-1 text-xs text-stone-500 dark:text-zinc-400">
+                {t.spendings.repeatHint}
+              </p>
+            </div>
+          ) : (
+            <input type="hidden" name="next_due" value="" />
+          )}
+        </div>
+      ) : (
+        <input type="hidden" name="next_due" value="" />
+      )}
+
       {state?.error ? (
         <p className="text-xs text-red-600 dark:text-red-400">{state.error}</p>
       ) : null}
-      <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="rounded-md bg-stone-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-stone-800 disabled:bg-stone-400 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-        >
-          {isPending ? t.common.saving : t.common.save}
-        </button>
+
+      <div className="flex items-center justify-end gap-2 pt-1">
         <button
           type="button"
           onClick={onDone}
-          className="rounded-md border border-stone-300 px-3 py-1.5 text-xs text-stone-700 hover:bg-stone-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           {t.common.cancel}
+        </button>
+        <button
+          type="submit"
+          disabled={isPending}
+          className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800 disabled:bg-stone-400 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+        >
+          {isPending ? t.common.saving : t.common.save}
         </button>
       </div>
     </form>
