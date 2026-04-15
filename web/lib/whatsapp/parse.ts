@@ -191,7 +191,16 @@ export async function parseInput(
     }
     return good;
   } catch (err) {
-    log.error("parse.gemini_failed", err);
+    const e = err as { message?: string; name?: string; stack?: string; status?: number };
+    const details = {
+      name: e?.name ?? "Unknown",
+      message: e?.message ?? String(err),
+      status: e?.status ?? null,
+      stack: e?.stack?.split("\n").slice(0, 5).join(" | ") ?? null,
+    };
+    log.error("parse.gemini_failed", details);
+    // Also emit to stdout so it's impossible to miss in Vercel logs.
+    console.error("[parse.gemini_failed]", JSON.stringify(details));
     return [{ intent: "unknown", reason: "Falha ao chamar o parser." }];
   }
 }
