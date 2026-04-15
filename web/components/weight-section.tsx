@@ -28,7 +28,16 @@ const labelCls =
 
 function formatDate(iso: string, locale: string): string {
   try {
-    return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(iso));
+    // Parse YYYY-MM-DD as a LOCAL date, not UTC midnight. Using `new Date(iso)`
+    // treats it as UTC and shifts the display by up to a day in non-UTC locales.
+    const parts = iso.split("-");
+    const y = Number(parts[0]);
+    const m = Number(parts[1]);
+    const d = Number(parts[2]);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return iso;
+    return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(
+      new Date(y, m - 1, d),
+    );
   } catch {
     return iso;
   }

@@ -8,6 +8,9 @@ import type { ParserInput } from "@/lib/whatsapp/parse";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Gemini audio transcription + intent extraction can take 5-15s;
+// Hobby-tier default is 10s which produces truncated "---" responses.
+export const maxDuration = 60;
 
 // Telegram voice notes are usually ogg/opus; audio files can be mp3/m4a/wav.
 // Cap at 5 MB to avoid pulling huge files through the Gemini inline API.
