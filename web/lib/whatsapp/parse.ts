@@ -369,7 +369,30 @@ export async function parseInput(
     if (good.length === 0) {
       return [{ intent: "unknown", reason: "Não entendi a mensagem." }];
     }
-    return good;
+
+    // Gemini-lite sometimes emits the same intent twice. Dedupe by a
+    // content-signature so we don't insert duplicate rows.
+    const signature = (p: ParsedIntent): string => {
+      if (p.intent === "spending") {
+        return `s|${p.pet_name}|${p.amount}|${p.category}|${p.spent_at}|${p.description ?? ""}`;
+      }
+      if (p.intent === "vaccine") {
+        return `v|${p.pet_name}|${p.vaccine_name}|${p.given_date}`;
+      }
+      return `u|${p.reason}`;
+    };
+    const seen = new Set<string>();
+    const deduped: ParsedIntents = [];
+    for (const p of good) {
+      const sig = signature(p);
+      if (seen.has(sig)) continue;
+      seen.add(sig);
+      deduped.push(p);
+    }
+    if (deduped.length !== good.length) {
+      log.info("parse.deduped", { before: good.length, after: deduped.length });
+    }
+    return deduped;
   } catch (err) {
     const e = err as { message?: string; name?: string; stack?: string; status?: number };
     const details = {
