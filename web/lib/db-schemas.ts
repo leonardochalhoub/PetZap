@@ -56,12 +56,13 @@ export const SpendingSchema = z.object({
   category: SpendingCategory,
   spent_at: z.string().date(),
   description: z.string().max(500).nullable().optional(),
+  next_due: z.string().date().nullable().optional(),
   created_at: z.string(),
 });
 export type Spending = z.infer<typeof SpendingSchema>;
 
 export const SpendingInputSchema = SpendingSchema.pick({
-  pet_id: true, amount_cents: true, currency: true, category: true, spent_at: true, description: true,
+  pet_id: true, amount_cents: true, currency: true, category: true, spent_at: true, description: true, next_due: true,
 });
 export type SpendingInput = z.infer<typeof SpendingInputSchema>;
 

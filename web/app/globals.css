@@ -20,6 +20,16 @@ body {
     Arial, sans-serif;
 }
 
+/* App background — calmer than stone-100, warmer than gray.
+   Light: a "linen" off-white that doesn't glare in dim rooms.
+   Dark:  pure inky zinc-950 with a hint of warmth via the brand. */
+.bg-app {
+  background-color: #EFEAE0;
+}
+html.dark .bg-app {
+  background-color: #0A0A0A;
+}
+
 ::selection {
   background: #FCD34D;
   color: #1C1917;
@@ -33,10 +43,10 @@ html.dark ::selection {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Subtle elevation for cards in light mode (warmer than default Tailwind shadow) */
+/* Subtle elevation tuned for the warm light bg + the inky dark bg. */
 .card-shadow {
-  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04), 0 1px 3px rgba(28, 25, 23, 0.06);
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04), 0 2px 6px rgba(28, 25, 23, 0.05);
 }
 html.dark .card-shadow {
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.6);
 }

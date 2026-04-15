@@ -1,16 +1,8 @@
 "use client";
 
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { useT, useLocale } from "@/i18n/client";
+import { PlotChart } from "./charts/plot";
+import type { PlotData } from "plotly.js";
 
 export type WeightSeriesRow = {
   /** ISO date YYYY-MM-DD */
@@ -52,15 +44,26 @@ export function WeightChart({
     );
   }
 
-  const fmtDate = (iso: string) => {
-    try {
-      return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short" }).format(
-        new Date(iso)
-      );
-    } catch {
-      return iso;
+  const traces: Partial<PlotData>[] = petNames.map((name, i) => {
+    const x: string[] = [];
+    const y: number[] = [];
+    for (const row of series) {
+      if (row[name] != null) {
+        x.push(String(row.date));
+        y.push(Number(row[name]));
+      }
     }
-  };
+    return {
+      type: "scatter",
+      mode: "lines+markers",
+      name,
+      x,
+      y,
+      line: { color: PALETTE[i % PALETTE.length], width: 2, shape: "spline", smoothing: 0.6 },
+      marker: { size: 6, color: PALETTE[i % PALETTE.length] },
+      hovertemplate: `<b>${name}</b><br>%{x}<br>%{y:.2f} ${t.pets.weightUnitShort}<extra></extra>`,
+    };
+  });
 
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
@@ -68,57 +71,22 @@ export function WeightChart({
         <h2 className="text-base font-semibold text-stone-900 dark:text-zinc-50">{heading}</h2>
         <p className="mt-0.5 text-xs text-stone-500 dark:text-zinc-400">{subtitle}</p>
       </header>
-      <div className="h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={series} margin={{ top: 10, right: 8, left: 8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E7E5E4" vertical={false} />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 12, fill: "#78716C" }}
-              tickFormatter={fmtDate}
-              axisLine={{ stroke: "#E7E5E4" }}
-              tickLine={false}
-              minTickGap={20}
-            />
-            <YAxis
-              tick={{ fontSize: 12, fill: "#78716C" }}
-              axisLine={false}
-              tickLine={false}
-              width={48}
-              domain={["dataMin - 1", "dataMax + 1"]}
-              allowDecimals
-              tickFormatter={(v: number) => `${v} ${t.pets.weightUnitShort}`}
-            />
-            <Tooltip
-              labelFormatter={(label) => fmtDate(String(label))}
-              formatter={(v, name) => [
-                `${typeof v === "number" ? v : Number(v)} ${t.pets.weightUnitShort}`,
-                String(name),
-              ]}
-              contentStyle={{
-                background: "rgba(255,255,255,0.95)",
-                border: "1px solid #E7E5E4",
-                borderRadius: "0.5rem",
-                fontSize: "12px",
-              }}
-              labelStyle={{ color: "#1C1917", fontWeight: 600 }}
-            />
-            <Legend wrapperStyle={{ fontSize: "12px", paddingTop: 8 }} />
-            {petNames.map((name, i) => (
-              <Line
-                key={name}
-                type="monotone"
-                dataKey={name}
-                stroke={PALETTE[i % PALETTE.length]}
-                strokeWidth={2}
-                dot={{ r: 3 }}
-                activeDot={{ r: 5 }}
-                connectNulls
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      <PlotChart
+        data={traces}
+        height={180}
+        layoutOverride={{
+          xaxis: {
+            type: "date",
+            tickformatstops: [
+              { dtickrange: [null, 86400000 * 14], value: "%d %b" },
+              { dtickrange: [86400000 * 14, "M3"], value: "%b %Y" },
+              { dtickrange: ["M3", null], value: "%Y" },
+            ],
+          },
+          yaxis: { ticksuffix: ` ${t.pets.weightUnitShort}` },
+        }}
+      />
+      <p className="sr-only">{locale}</p>
     </section>
   );
 }

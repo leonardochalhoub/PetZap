@@ -61,7 +61,7 @@ export default async function PetDetailPage({
       .order("given_date", { ascending: false }),
     supabase
       .from("spendings")
-      .select("id, amount_cents, currency, category, spent_at, description")
+      .select("id, amount_cents, currency, category, spent_at, description, next_due")
       .eq("pet_id", id)
       .order("spent_at", { ascending: false }),
     supabase

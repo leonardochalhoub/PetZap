@@ -65,6 +65,9 @@ export function AddSpendingDialog({
   const [selected, setSelected] = useState<Set<string>>(new Set(initialSelectedIds));
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<SpendingCategoryKey>("food");
+  const [repeat, setRepeat] = useState(false);
+  const [nextDue, setNextDue] = useState("");
+  const isRepeatable = category === "medicine";
 
   const [state, formAction] = useActionState<ActionResult | undefined, FormData>(
     addSpendingMulti,
@@ -261,6 +264,38 @@ export function AddSpendingDialog({
             />
           </div>
         </div>
+
+        {isRepeatable ? (
+          <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 dark:border-zinc-800 dark:bg-zinc-950/40">
+            <label className="inline-flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={repeat}
+                onChange={(e) => setRepeat(e.target.checked)}
+                className="h-4 w-4 rounded border-stone-300 text-stone-900 focus:ring-stone-900 dark:border-zinc-700"
+              />
+              <span className="text-sm font-medium text-stone-900 dark:text-zinc-100">
+                {t.spendings.repeat}
+              </span>
+            </label>
+            {repeat ? (
+              <div className="mt-2">
+                <label htmlFor="dlg-next" className={labelCls}>{t.spendings.nextDue}</label>
+                <input
+                  id="dlg-next"
+                  name="next_due"
+                  type="date"
+                  required={repeat}
+                  value={nextDue}
+                  onChange={(e) => setNextDue(e.target.value)}
+                  min={new Date().toISOString().slice(0, 10)}
+                  className={inputCls}
+                />
+                <p className="mt-1 text-xs text-stone-500 dark:text-zinc-400">{t.spendings.repeatHint}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {selected.size === 0 ? (
           <p className="text-xs text-amber-700 dark:text-amber-400">{t.spendings.atLeastOnePet}</p>

@@ -5,6 +5,7 @@ import { getDictionary } from "@/i18n/server";
 import { Brand } from "./brand";
 import { ThemeToggle } from "./theme-toggle";
 import { LocaleToggle } from "./locale-toggle";
+import { WhatsAppIcon } from "./whatsapp-icon";
 
 export async function Nav() {
   const supabase = await createClient();
@@ -27,8 +28,9 @@ export async function Nav() {
             </Link>
             <Link
               href="/settings/whatsapp"
-              className="rounded-md px-3 py-1.5 text-stone-700 hover:bg-stone-100 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-stone-700 hover:bg-stone-100 dark:text-zinc-200 dark:hover:bg-zinc-900"
             >
+              <WhatsAppIcon className="h-4 w-4" />
               {t.nav.whatsapp}
             </Link>
           </div>

@@ -4,12 +4,13 @@ import { useTransition } from "react";
 import { deleteSpending } from "@/lib/actions/spendings";
 import type { Spending } from "@/lib/db-schemas";
 import { useT } from "@/i18n/client";
+import type { SpendingCategoryKey } from "@/i18n/messages/en";
 
 type Props = {
   petId: string;
   spendings: Pick<
     Spending,
-    "id" | "amount_cents" | "currency" | "category" | "spent_at" | "description"
+    "id" | "amount_cents" | "currency" | "category" | "spent_at" | "description" | "next_due"
   >[];
 };
 
@@ -43,13 +44,18 @@ export function SpendingList({ petId, spendings }: Props) {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-stone-900 dark:text-zinc-50">
               {formatMoney(s.amount_cents, s.currency)}{" "}
-              <span className="text-xs font-normal capitalize text-stone-500 dark:text-zinc-400">
-                · {s.category}
+              <span className="text-xs font-normal text-stone-500 dark:text-zinc-400">
+                · {t.spendingCategories[s.category as SpendingCategoryKey] ?? s.category}
               </span>
             </p>
             <p className="mt-0.5 text-xs text-stone-600 dark:text-zinc-400">{s.spent_at}</p>
             {s.description ? (
               <p className="mt-1 text-xs text-stone-500 dark:text-zinc-500">{s.description}</p>
+            ) : null}
+            {s.next_due ? (
+              <p className="mt-1 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                {t.spendings.nextDueShort} {s.next_due}
+              </p>
             ) : null}
           </div>
           <button

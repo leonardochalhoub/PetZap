@@ -9,7 +9,7 @@ export default async function LoginPage() {
   const t = await getDictionary();
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-stone-100 dark:bg-zinc-950">
+    <div className="relative flex min-h-screen flex-col ">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
         <Brand href="/" />
         <div className="flex items-center gap-2">
@@ -28,7 +28,15 @@ export default async function LoginPage() {
           <div className="mt-6">
             <LoginForm />
           </div>
-          <p className="mt-6 text-sm text-stone-600 dark:text-zinc-400">
+          <div className="mt-4 text-right text-sm">
+            <Link
+              href="/forgot-password"
+              className="text-stone-600 hover:text-stone-900 hover:underline dark:text-zinc-400 dark:hover:text-zinc-100"
+            >
+              {t.auth.forgotPassword}
+            </Link>
+          </div>
+          <p className="mt-6 border-t border-stone-200 pt-6 text-sm text-stone-600 dark:border-zinc-800 dark:text-zinc-400">
             {t.auth.noAccount}{" "}
             <Link
               href="/signup"

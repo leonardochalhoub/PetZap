@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { I18nProvider } from "@/i18n/client";
+import { Footer } from "@/components/footer";
 import { getDictionary, getLocale } from "@/i18n/server";
 
 const geistSans = Geist({
@@ -37,10 +38,11 @@ export default async function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-stone-100 text-stone-900 dark:bg-zinc-950 dark:text-zinc-100">
+      <body className="min-h-screen flex flex-col bg-app text-stone-900 dark:text-zinc-100">
         <ThemeProvider>
           <I18nProvider locale={locale} messages={messages}>
-            {children}
+            <div className="flex-1 flex flex-col">{children}</div>
+            <Footer />
           </I18nProvider>
         </ThemeProvider>
       </body>

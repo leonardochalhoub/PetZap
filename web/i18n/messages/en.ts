@@ -11,6 +11,9 @@ export type Messages = {
     subtitle: string;
     ctaPrimary: string;
     ctaSecondary: string;
+    carouselAlt: string;
+    typingPrompt: string;
+    typingOk: string;
   };
   features: {
     heading: string;
@@ -22,7 +25,13 @@ export type Messages = {
     free: { title: string; desc: string };
   };
   closing: { title: string; subtitle: string; cta: string };
-  footer: { copy: string };
+  footer: {
+    copy: string;
+    developedBy: string;
+    email: string;
+    links: string;
+    lastUpdate: string;
+  };
   nav: {
     dashboard: string;
     pets: string;
@@ -40,6 +49,29 @@ export type Messages = {
     email: string;
     password: string;
     passwordHint: string;
+    fullName: string;
+    fullNamePlaceholder: string;
+    treatmentLabel: string;
+    treatmentHint: string;
+    treatmentMale: string;
+    treatmentFemale: string;
+    treatmentNeutral: string;
+    rememberMe: string;
+    rememberMeHint: string;
+    forgotPassword: string;
+    forgotTitle: string;
+    forgotSubtitle: string;
+    forgotSubmit: string;
+    forgotSubmitPending: string;
+    forgotSentTitle: string;
+    forgotSentDesc: string;
+    resetTitle: string;
+    resetSubtitle: string;
+    resetNewPassword: string;
+    resetSubmit: string;
+    resetSubmitPending: string;
+    resetSuccess: string;
+    backToLogin: string;
     submitLogin: string;
     submitLoginPending: string;
     submitSignup: string;
@@ -51,8 +83,28 @@ export type Messages = {
   };
   dashboard: {
     title: string;
+    welcomeBack: { male: string; female: string; neutral: string };
     addPet: string;
     addSpending: string;
+    exportData: string;
+    exportDataHint: string;
+    alertsTitle: string;
+    alertsDismiss: string;
+    alertsViewPet: string;
+    alertsKindVaccine: string;
+    alertsKindMedication: string;
+    alertsTodayWord: string;
+    alertsTomorrow: string;
+    alertsInDays: string;
+    kpiThisMonth: string;
+    kpiLast6Months: string;
+    kpiProjected6Months: string;
+    kpiProjectedHint: string;
+    kpiPets: string;
+    kpiTransactions: string;
+    kpiAvgPerTransaction: string;
+    kpiTopCategory: string;
+    kpiNone: string;
     statsPets: string;
     statsUpcoming: string;
     statsRecent: string;
@@ -71,6 +123,13 @@ export type Messages = {
     weightChartHeading: string;
     weightChartSubtitle: string;
     weightChartEmpty: string;
+    weightDeltaHeading: string;
+    weightDeltaSubtitle: string;
+    weightDeltaEmpty: string;
+    weightDeltaUnit: string;
+    pieHeading: string;
+    pieSubtitle: string;
+    pieEmpty: string;
     clearFilter: string;
     filterHint: string;
     open: string;
@@ -168,6 +227,10 @@ export type Messages = {
     cancel: string;
     atLeastOnePet: string;
     splitInfo: string;
+    repeat: string;
+    repeatHint: string;
+    nextDue: string;
+    nextDueShort: string;
   };
   whatsapp: {
     title: string;
@@ -228,9 +291,12 @@ export const en: Messages = {
     eyebrow: "Pet care, made effortless",
     title: "Track your pet's care, by tap or by text",
     subtitle:
-      "Vaccines, spending, and reminders — manually or by texting our WhatsApp number.",
+      "Vaccines, spending, and reminders — add by tap or by WhatsApp; get email and WhatsApp alerts for important dates like vaccines and medications.",
     ctaPrimary: "Get started free",
     ctaSecondary: "Sign in",
+    carouselAlt: "Pet care moments",
+    typingPrompt: "starting pet management....",
+    typingOk: "OK",
   },
   features: {
     heading: "Everything you need, nothing you don't",
@@ -246,7 +312,13 @@ export const en: Messages = {
     subtitle: "Free. Private. Works by WhatsApp.",
     cta: "Create your account",
   },
-  footer: { copy: "2026 PetZap" },
+  footer: {
+    copy: "2026 PetZap",
+    developedBy: "Developed by",
+    email: "Email",
+    links: "Links",
+    lastUpdate: "Last update",
+  },
   nav: {
     dashboard: "Dashboard",
     pets: "Pets",
@@ -264,6 +336,29 @@ export const en: Messages = {
     email: "Email",
     password: "Password",
     passwordHint: "At least 6 characters.",
+    fullName: "Full name",
+    fullNamePlaceholder: "Your name",
+    treatmentLabel: "How should we greet you?",
+    treatmentHint: "Used for the welcome message — pick what feels right.",
+    treatmentMale: "Mr.",
+    treatmentFemale: "Ms.",
+    treatmentNeutral: "Mx.",
+    rememberMe: "Save my password",
+    rememberMeHint: "Your browser will offer to remember it after sign in.",
+    forgotPassword: "Forgot your password?",
+    forgotTitle: "Reset your password",
+    forgotSubtitle: "Enter your email and we'll send you a reset link.",
+    forgotSubmit: "Send reset link",
+    forgotSubmitPending: "Sending...",
+    forgotSentTitle: "Check your email",
+    forgotSentDesc: "If an account exists for that email, we sent a link to reset your password.",
+    resetTitle: "Set a new password",
+    resetSubtitle: "Pick a strong password you don't use anywhere else.",
+    resetNewPassword: "New password",
+    resetSubmit: "Save new password",
+    resetSubmitPending: "Saving...",
+    resetSuccess: "Password updated. Redirecting...",
+    backToLogin: "← Back to sign in",
     submitLogin: "Sign in",
     submitLoginPending: "Signing in...",
     submitSignup: "Create account",
@@ -275,8 +370,32 @@ export const en: Messages = {
   },
   dashboard: {
     title: "Dashboard",
+    welcomeBack: {
+      male: "Welcome back, Mr.",
+      female: "Welcome back, Ms.",
+      neutral: "Welcome back, Mx.",
+    },
     addPet: "Add pet",
     addSpending: "Add spending",
+    exportData: "Export",
+    exportDataHint: "Download all your data as JSON",
+    alertsTitle: "Important reminders",
+    alertsDismiss: "Dismiss for today",
+    alertsViewPet: "Open",
+    alertsKindVaccine: "Vaccine",
+    alertsKindMedication: "Medication",
+    alertsTodayWord: "today",
+    alertsTomorrow: "tomorrow",
+    alertsInDays: "in {n} days",
+    kpiThisMonth: "This month",
+    kpiLast6Months: "Last 6 months",
+    kpiProjected6Months: "Projected next 6 months",
+    kpiProjectedHint: "Avg of recent months × 6",
+    kpiPets: "Pets",
+    kpiTransactions: "Transactions",
+    kpiAvgPerTransaction: "Avg / transaction",
+    kpiTopCategory: "Top category",
+    kpiNone: "—",
     statsPets: "Pets",
     statsUpcoming: "Upcoming vaccines (30d)",
     statsRecent: "Recent spendings",
@@ -296,6 +415,13 @@ export const en: Messages = {
     weightChartHeading: "Weight over time",
     weightChartSubtitle: "All your pets — past entries can be added with the right date",
     weightChartEmpty: "No weights recorded yet. Add weights from each pet's page.",
+    weightDeltaHeading: "Weight change between entries",
+    weightDeltaSubtitle: "Positive bars = gained weight · negative = lost",
+    weightDeltaEmpty: "Add at least 2 weights per pet to see changes.",
+    weightDeltaUnit: "kg",
+    pieHeading: "Distribution by category",
+    pieSubtitle: "Last 24 months",
+    pieEmpty: "No spending in the period.",
     clearFilter: "Clear filter",
     filterHint: "Click pets to filter charts",
     open: "Open",
@@ -393,6 +519,10 @@ export const en: Messages = {
     cancel: "Cancel",
     atLeastOnePet: "Select at least one pet.",
     splitInfo: "Each pet:",
+    repeat: "Repeat?",
+    repeatHint: "We'll email you 2 weeks and 1 week before the next dose.",
+    nextDue: "Next dose date",
+    nextDueShort: "Next:",
   },
   whatsapp: {
     title: "WhatsApp",

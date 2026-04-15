@@ -38,6 +38,7 @@ export async function addSpending(
     category: formData.get("category"),
     spent_at: formData.get("spent_at"),
     description: emptyToNull(formData.get("description")),
+    next_due: emptyToNull(formData.get("next_due")),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -75,6 +76,7 @@ export async function addSpendingMulti(
   const category = formData.get("category");
   const spentAt = formData.get("spent_at");
   const description = emptyToNull(formData.get("description"));
+  const nextDue = emptyToNull(formData.get("next_due"));
   const currency = (formData.get("currency") ?? "BRL").toString().toUpperCase();
 
   // Even split: each pet gets floor; the first (remainder) pets get +1 cent.
@@ -91,6 +93,7 @@ export async function addSpendingMulti(
       category,
       spent_at: spentAt,
       description,
+      next_due: nextDue,
     };
   });
 

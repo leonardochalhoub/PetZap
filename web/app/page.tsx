@@ -1,10 +1,48 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getDictionary } from "@/i18n/server";
 import { Brand } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleToggle } from "@/components/locale-toggle";
+import { TypingBanner } from "@/components/typing-banner";
+import { LandingCarousel } from "@/components/landing-carousel";
+import {
+  LandingDashboardPreview,
+  type ShowcasePet,
+} from "@/components/landing-dashboard-preview";
+
+const CAROUSEL_IMAGES = [
+  "/carousel/20180610_113044.jpg",
+  "/carousel/20190907_115016.jpg",
+  "/carousel/IMG-20250521-WA0001.jpeg",
+];
+
+// Showcase user (Leo) whose real pets fill the landing dashboard preview.
+const SHOWCASE_USER_ID =
+  process.env.NEXT_PUBLIC_SHOWCASE_USER_ID ?? "f5a4a39f-46ce-4c0a-a9c7-61936368dcea";
+
+async function getShowcasePets(): Promise<ShowcasePet[]> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("pets")
+      .select("name, species, photo_url, photo_zoom, sort_order")
+      .eq("user_id", SHOWCASE_USER_ID)
+      .order("sort_order", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(4);
+    return (data ?? []).map((p) => ({
+      name: p.name,
+      species: p.species,
+      photo_url: p.photo_url,
+      photo_zoom: p.photo_zoom,
+    }));
+  } catch {
+    return [];
+  }
+}
 
 export default async function LandingPage() {
   const supabase = await createClient();
@@ -14,6 +52,7 @@ export default async function LandingPage() {
   if (user) redirect("/dashboard");
 
   const t = await getDictionary();
+  const showcasePets = await getShowcasePets();
 
   const features = [
     { icon: "🐾", ...t.features.multiPet },
@@ -25,8 +64,8 @@ export default async function LandingPage() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-stone-100 text-stone-900 dark:bg-zinc-950 dark:text-zinc-100">
-      <header className="sticky top-0 z-20 border-b border-stone-200/70 bg-white/80 backdrop-blur dark:border-zinc-800/70 dark:bg-zinc-950/80">
+    <div className="flex min-h-screen flex-col text-stone-900 dark:text-zinc-100">
+      <header className="sticky top-0 z-20 border-b border-stone-200/70 bg-white/70 backdrop-blur dark:border-zinc-800/70 dark:bg-zinc-950/80">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <Brand />
           <div className="flex items-center gap-2 sm:gap-3">
@@ -59,6 +98,9 @@ export default async function LandingPage() {
           <p className="mt-6 max-w-2xl text-lg text-stone-600 sm:text-xl dark:text-zinc-400">
             {t.hero.subtitle}
           </p>
+          <div className="mt-8">
+            <TypingBanner prompt={t.hero.typingPrompt} ok={t.hero.typingOk} />
+          </div>
           <div className="mt-10 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/signup"
@@ -73,6 +115,14 @@ export default async function LandingPage() {
               {t.hero.ctaSecondary}
             </Link>
           </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-6 pb-20">
+          <LandingDashboardPreview t={t} pets={showcasePets} />
+        </section>
+
+        <section className="mx-auto max-w-5xl px-6 pb-20">
+          <LandingCarousel images={CAROUSEL_IMAGES} alt={t.hero.carouselAlt} />
         </section>
 
         <section className="mx-auto max-w-6xl px-6 pb-20">
@@ -110,10 +160,6 @@ export default async function LandingPage() {
           </div>
         </section>
       </main>
-
-      <footer className="border-t border-stone-200 py-8 text-center text-sm text-stone-500 dark:border-zinc-800 dark:text-zinc-500">
-        &copy; {t.footer.copy}
-      </footer>
     </div>
   );
 }

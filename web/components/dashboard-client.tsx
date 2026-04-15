@@ -4,8 +4,11 @@ import { startTransition, useEffect, useMemo, useState, useTransition } from "re
 import Link from "next/link";
 import { useT, useLocale } from "@/i18n/client";
 import { ExpensesChart, type MonthlyBucket } from "./expenses-chart";
+import { ExpensesPieChart } from "./expenses-pie-chart";
 import { WeightChart, type WeightSeriesRow } from "./weight-chart";
+import { WeightDeltaChart } from "./weight-delta-chart";
 import { AddSpendingDialog } from "./add-spending-dialog";
+import { UpcomingAlerts, type UpcomingAlert } from "./upcoming-alerts";
 import { reorderPets } from "@/lib/actions/pets";
 import type { SpendingCategoryKey } from "@/i18n/messages/en";
 
@@ -177,17 +180,23 @@ function PetThumbToggle({
 }
 
 export function DashboardClient({
+  firstName,
+  treatment,
   pets,
   vaccinesUpcoming,
   spendingsRecent,
   spendingsForChart,
   weightsForChart,
+  alerts,
 }: {
+  firstName: string;
+  treatment: "male" | "female" | "neutral";
   pets: Pet[];
   vaccinesUpcoming: { id: string; pet_id: string }[];
   spendingsRecent: { id: string; pet_id: string }[];
   spendingsForChart: ChartSpending[];
   weightsForChart: ChartWeight[];
+  alerts: UpcomingAlert[];
 }) {
   const t = useT();
   const locale = useLocale();
@@ -230,6 +239,68 @@ export function DashboardClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [weightsForChart, selected]
   );
+
+  // KPIs (filter-aware): spending sums + counts + top category.
+  const spendingKpis = useMemo(() => {
+    const filtered = spendingsForChart.filter((s) => matches(s.pet_id));
+    const now = new Date();
+    const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const last6Cutoff = sixMonthsAgo.toISOString().slice(0, 7);
+
+    let thisMonthCents = 0;
+    let last6Cents = 0;
+    let totalCents = 0;
+    const monthsWithData = new Set<string>();
+    const byCategory: Record<string, number> = {};
+
+    for (const s of filtered) {
+      const ym = s.spent_at.slice(0, 7);
+      totalCents += s.amount_cents;
+      monthsWithData.add(ym);
+      if (ym === currentYM) thisMonthCents += s.amount_cents;
+      if (ym >= last6Cutoff) last6Cents += s.amount_cents;
+      byCategory[s.category] = (byCategory[s.category] ?? 0) + s.amount_cents;
+    }
+
+    const txCount = filtered.length;
+    const avgPerTxCents = txCount > 0 ? Math.round(totalCents / txCount) : 0;
+    const monthCount = monthsWithData.size;
+    const monthlyAvgCents = monthCount > 0 ? totalCents / monthCount : 0;
+    const projected6Cents = monthlyAvgCents * 6;
+
+    let topCategory: string | null = null;
+    let topCategoryCents = 0;
+    for (const [cat, cents] of Object.entries(byCategory)) {
+      if (cents > topCategoryCents) {
+        topCategoryCents = cents;
+        topCategory = cat;
+      }
+    }
+
+    return {
+      thisMonthCents,
+      last6Cents,
+      projected6Cents,
+      txCount,
+      avgPerTxCents,
+      topCategory,
+      topCategoryCents,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spendingsForChart, selected]);
+
+  const fmtBRL = (cents: number) => {
+    try {
+      return new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: "BRL",
+        maximumFractionDigits: 0,
+      }).format(cents / 100);
+    } catch {
+      return `R$ ${(cents / 100).toFixed(0)}`;
+    }
+  };
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -279,12 +350,20 @@ export function DashboardClient({
     setDropIdx(null);
   };
 
+  // Filter alerts by the same pet selection as the rest of the dashboard
+  const visibleAlerts = isFiltered ? alerts.filter((a) => selected.has(a.petId)) : alerts;
+
   return (
     <div className="space-y-8">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight text-stone-900 dark:text-zinc-50">
-          {t.dashboard.title}
-        </h1>
+      <UpcomingAlerts alerts={visibleAlerts} />
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight text-stone-900 dark:text-zinc-50">
+            {t.dashboard.welcomeBack[treatment]} {firstName}
+            <span className="text-amber-500"> !</span>
+          </h1>
+          <p className="mt-1 text-sm text-stone-500 dark:text-zinc-400">{t.dashboard.title}</p>
+        </div>
         <div className="flex items-center gap-2">
           {orderedPets.length > 0 ? (
             <button
@@ -295,6 +374,19 @@ export function DashboardClient({
               {t.dashboard.addSpending}
             </button>
           ) : null}
+          <a
+            href="/api/export"
+            download
+            title={t.dashboard.exportDataHint}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-900 shadow-sm transition-colors hover:bg-stone-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {t.dashboard.exportData}
+          </a>
           <Link
             href="/pets/new"
             className="inline-flex items-center rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-stone-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
@@ -303,6 +395,94 @@ export function DashboardClient({
           </Link>
         </div>
       </header>
+
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* Pets — indigo */}
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 shadow-sm dark:border-indigo-900/40 dark:bg-indigo-950/20">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700/80 dark:text-indigo-300/80">
+            {t.dashboard.kpiPets}
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-indigo-700 dark:text-indigo-300">
+            {orderedPets.length}
+          </p>
+        </div>
+        {/* Vacinas próximas (30d) — rose */}
+        <div className="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 shadow-sm dark:border-rose-900/40 dark:bg-rose-950/20">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700/80 dark:text-rose-300/80">
+            {t.dashboard.statsUpcoming}
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-rose-700 dark:text-rose-300">
+            {upcomingCount}
+          </p>
+        </div>
+        {/* Transactions — purple */}
+        <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-4 shadow-sm dark:border-purple-900/40 dark:bg-purple-950/20">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700/80 dark:text-purple-300/80">
+            {t.dashboard.kpiTransactions}
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-purple-700 dark:text-purple-300">
+            {spendingKpis.txCount}
+          </p>
+          <p className="mt-0.5 text-[11px] text-stone-500 dark:text-zinc-500">
+            {t.dashboard.statsRecent}: {recentCount}
+          </p>
+        </div>
+        {/* Avg per transaction — teal */}
+        <div className="rounded-2xl border border-teal-200 bg-teal-50/60 p-4 shadow-sm dark:border-teal-900/40 dark:bg-teal-950/20">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-teal-700/80 dark:text-teal-300/80">
+            {t.dashboard.kpiAvgPerTransaction}
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-teal-700 dark:text-teal-300">
+            {fmtBRL(spendingKpis.avgPerTxCents)}
+          </p>
+        </div>
+        {/* This month — emerald */}
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700/80 dark:text-emerald-300/80">
+            {t.dashboard.kpiThisMonth}
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-emerald-700 dark:text-emerald-300">
+            {fmtBRL(spendingKpis.thisMonthCents)}
+          </p>
+        </div>
+        {/* Last 6 months — blue */}
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 shadow-sm dark:border-blue-900/40 dark:bg-blue-950/20">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-700/80 dark:text-blue-300/80">
+            {t.dashboard.kpiLast6Months}
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-blue-700 dark:text-blue-300">
+            {fmtBRL(spendingKpis.last6Cents)}
+          </p>
+        </div>
+        {/* Projected 6 months — amber */}
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/20">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700/80 dark:text-amber-300/80">
+            {t.dashboard.kpiProjected6Months}
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-amber-700 dark:text-amber-300">
+            {fmtBRL(spendingKpis.projected6Cents)}
+          </p>
+          <p className="mt-0.5 text-[11px] text-stone-500 dark:text-zinc-500">
+            {t.dashboard.kpiProjectedHint}
+          </p>
+        </div>
+        {/* Top category — fuchsia */}
+        <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50/60 p-4 shadow-sm dark:border-fuchsia-900/40 dark:bg-fuchsia-950/20">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-fuchsia-700/80 dark:text-fuchsia-300/80">
+            {t.dashboard.kpiTopCategory}
+          </p>
+          <p className="mt-1 truncate text-lg font-semibold text-fuchsia-700 dark:text-fuchsia-300">
+            {spendingKpis.topCategory
+              ? t.spendingCategories[spendingKpis.topCategory as SpendingCategoryKey] ?? spendingKpis.topCategory
+              : t.dashboard.kpiNone}
+          </p>
+          {spendingKpis.topCategory ? (
+            <p className="mt-0.5 text-[11px] text-stone-500 dark:text-zinc-500">
+              {fmtBRL(spendingKpis.topCategoryCents)}
+            </p>
+          ) : null}
+        </div>
+      </section>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
@@ -326,23 +506,24 @@ export function DashboardClient({
             </span>
           ) : null}
         </div>
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+        <div className="flex flex-wrap justify-center gap-6">
           {orderedPets.map((p, i) => (
-            <PetThumbToggle
-              key={p.id}
-              pet={p}
-              selected={selected.has(p.id)}
-              dimmed={isFiltered && !selected.has(p.id)}
-              isDragSource={dragIdx === i}
-              isDropTarget={dropIdx === i && dragIdx !== i}
-              onToggle={() => toggle(p.id)}
-              onDragStart={handleDragStart(i)}
-              onDragOver={handleDragOver(i)}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop(i)}
-              onDragEnd={handleDragEnd}
-              openLabel={t.dashboard.open}
-            />
+            <div key={p.id} className="w-40 sm:w-44 md:w-48">
+              <PetThumbToggle
+                pet={p}
+                selected={selected.has(p.id)}
+                dimmed={isFiltered && !selected.has(p.id)}
+                isDragSource={dragIdx === i}
+                isDropTarget={dropIdx === i && dragIdx !== i}
+                onToggle={() => toggle(p.id)}
+                onDragStart={handleDragStart(i)}
+                onDragOver={handleDragOver(i)}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop(i)}
+                onDragEnd={handleDragEnd}
+                openLabel={t.dashboard.open}
+              />
+            </div>
           ))}
         </div>
       </section>
@@ -360,34 +541,21 @@ export function DashboardClient({
         locale={locale}
       />
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-zinc-400">
-            {t.dashboard.statsUpcoming}
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-stone-900 dark:text-zinc-50">
-            {upcomingCount}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-500 dark:text-zinc-400">
-            {t.dashboard.statsRecent}
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-stone-900 dark:text-zinc-50">
-            {recentCount}
-          </p>
-        </div>
-      </section>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <ExpensesChart monthly={monthly} />
+        <ExpensesPieChart spendings={spendingsForChart.filter((s) => matches(s.pet_id))} />
+      </div>
 
-      <ExpensesChart monthly={monthly} />
-
-      <WeightChart
-        series={weightSeries}
-        petNames={weightPetNames}
-        heading={t.dashboard.weightChartHeading}
-        subtitle={t.dashboard.weightChartSubtitle}
-        emptyText={t.dashboard.weightChartEmpty}
-      />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <WeightChart
+          series={weightSeries}
+          petNames={weightPetNames}
+          heading={t.dashboard.weightChartHeading}
+          subtitle={t.dashboard.weightChartSubtitle}
+          emptyText={t.dashboard.weightChartEmpty}
+        />
+        <WeightDeltaChart weights={weightsForChart.filter((w) => matches(w.pet_id))} />
+      </div>
     </div>
   );
 }

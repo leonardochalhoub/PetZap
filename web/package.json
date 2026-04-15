@@ -11,11 +11,16 @@
     "@google/generative-ai": "^0.24.1",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.0",
+    "@types/plotly.js": "^3.0.10",
+    "@types/react-plotly.js": "^2.6.4",
     "next": "16.2.3",
     "next-themes": "^0.4.6",
+    "plotly.js-basic-dist-min": "^3.5.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-plotly.js": "^2.6.0",
     "recharts": "^3.8.1",
+    "resend": "^6.11.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

@@ -30,8 +30,14 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const meta = (user.user_metadata ?? {}) as { full_name?: string; treatment?: string };
+  const firstName = (meta.full_name ?? user.email?.split("@")[0] ?? "").split(" ")[0];
+  const treatment: "male" | "female" | "neutral" =
+    meta.treatment === "male" || meta.treatment === "female" ? meta.treatment : "neutral";
+
   const today = todayISO();
   const in30d = inDaysISO(30);
+  const in14d = inDaysISO(14);
   const last30dStart = inDaysISO(-30);
 
   const chartStart = new Date();
@@ -44,6 +50,8 @@ export default async function DashboardPage() {
     { data: spendingsRecent },
     { data: spendingsForChart },
     { data: weightsRaw },
+    { data: vaccineAlertsRaw },
+    { data: medicationAlertsRaw },
   ] = await Promise.all([
     supabase
       .from("pets")
@@ -72,6 +80,25 @@ export default async function DashboardPage() {
       .select("measured_at, weight_kg, pet_id, pets!inner(id, name)")
       .order("measured_at", { ascending: true })
       .returns<WeightRow[]>(),
+    // Upcoming vaccines (next 14 days) for in-app alerts
+    supabase
+      .from("vaccines")
+      .select("id, name, next_date, pet_id, pets!inner(id, name)")
+      .not("next_date", "is", null)
+      .gte("next_date", today)
+      .lte("next_date", in14d)
+      .order("next_date", { ascending: true })
+      .returns<{ id: string; name: string; next_date: string; pet_id: string; pets: { id: string; name: string } | null }[]>(),
+    // Upcoming meds (next 14 days)
+    supabase
+      .from("spendings")
+      .select("id, description, next_due, pet_id, pets!inner(id, name)")
+      .eq("category", "medicine")
+      .not("next_due", "is", null)
+      .gte("next_due", today)
+      .lte("next_due", in14d)
+      .order("next_due", { ascending: true })
+      .returns<{ id: string; description: string | null; next_due: string; pet_id: string; pets: { id: string; name: string } | null }[]>(),
   ]);
 
   const weightsForChart =
@@ -84,13 +111,38 @@ export default async function DashboardPage() {
         pet_name: w.pets!.name,
       }));
 
+  // Build the in-app alert list (vaccines + meds in next 14 days)
+  const todayDate = new Date(today + "T00:00:00");
+  const dayMs = 86400000;
+  const alerts = [
+    ...(vaccineAlertsRaw ?? []).filter((v) => v.pets).map((v) => ({
+      kind: "vaccine" as const,
+      petId: v.pets!.id,
+      petName: v.pets!.name,
+      itemName: v.name,
+      dueDate: v.next_date,
+      daysUntil: Math.round((new Date(v.next_date + "T00:00:00").getTime() - todayDate.getTime()) / dayMs),
+    })),
+    ...(medicationAlertsRaw ?? []).filter((m) => m.pets).map((m) => ({
+      kind: "medication" as const,
+      petId: m.pets!.id,
+      petName: m.pets!.name,
+      itemName: m.description ?? "Medicamento",
+      dueDate: m.next_due,
+      daysUntil: Math.round((new Date(m.next_due + "T00:00:00").getTime() - todayDate.getTime()) / dayMs),
+    })),
+  ].sort((a, b) => a.daysUntil - b.daysUntil);
+
   return (
     <DashboardClient
+      firstName={firstName}
+      treatment={treatment}
       pets={pets ?? []}
       vaccinesUpcoming={vaccinesUpcoming ?? []}
       spendingsRecent={spendingsRecent ?? []}
       spendingsForChart={spendingsForChart ?? []}
       weightsForChart={weightsForChart}
+      alerts={alerts}
     />
   );
 }
