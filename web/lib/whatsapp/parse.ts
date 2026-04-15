@@ -294,6 +294,31 @@ function buildSystemInstruction(petNames: string[]): string {
   ].join("\n");
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Gemini returns `Please retry in Xs.` inside the 429 error message.
+ * Extract that so we can decide whether it's worth waiting (short delay)
+ * or bail out and tell the user to try again later (long delay).
+ */
+function extractRetrySeconds(err: unknown): number | null {
+  const msg = (err as { message?: string })?.message;
+  if (typeof msg !== "string") return null;
+  const m = msg.match(/retry in (\d+(?:\.\d+)?)\s*s/i) ?? msg.match(/"retryDelay"\s*:\s*"(\d+)s"/);
+  if (!m?.[1]) return null;
+  const n = parseFloat(m[1]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function isRateLimited(err: unknown): boolean {
+  const e = err as { status?: number; message?: string };
+  if (e?.status === 429) return true;
+  const msg = typeof e?.message === "string" ? e.message.toLowerCase() : "";
+  return msg.includes("quota") || msg.includes("too many");
+}
+
 async function callGemini(
   input: ParserInput,
   petNames: string[],
@@ -361,12 +386,31 @@ async function callGemini(
   return { json: JSON.parse(raw), effectiveText: input.text };
 }
 
+async function callGeminiWithRateLimitRetry(
+  input: ParserInput,
+  petNames: string[],
+): Promise<{ json: unknown; effectiveText: string }> {
+  try {
+    return await callGemini(input, petNames);
+  } catch (err) {
+    if (!isRateLimited(err)) throw err;
+    const retry = extractRetrySeconds(err);
+    // Only retry if the server says it's a short backoff. Longer delays
+    // mean the daily quota is burnt — no point holding the webhook open.
+    if (retry == null || retry > 20) throw err;
+    const waitMs = Math.ceil((retry + 0.5) * 1000);
+    log.warn("parse.gemini_rate_limited_retry", { waitMs });
+    await sleep(waitMs);
+    return callGemini(input, petNames);
+  }
+}
+
 export async function parseInput(
   input: ParserInput,
   petNames: string[],
 ): Promise<ParsedIntents> {
   try {
-    const { json, effectiveText } = await callGemini(input, petNames);
+    const { json, effectiveText } = await callGeminiWithRateLimitRetry(input, petNames);
 
     // Accept both the expected { intents: [...] } and a bare array Gemini sometimes emits
     // despite the responseSchema, plus a bare object (single intent).
