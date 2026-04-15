@@ -2,13 +2,14 @@
 
 # PetZap
 
+## 🐾 Live app &nbsp;👉&nbsp; **[https://pet-zap.vercel.app](https://pet-zap.vercel.app)**
+
+[![Open live site](https://img.shields.io/badge/open-pet--zap.vercel.app-brightgreen?style=for-the-badge&logo=vercel&logoColor=white)](https://pet-zap.vercel.app)
+
 **The easiest way to keep your pet's health, spending, and vaccine schedule in one place.**
 
 Full-stack SaaS for pet owners — add records by tap, text, or voice note via Telegram. Built with Next.js 16, Supabase, and Gemini.
 
-### [🔗 Live app — pet-zap.vercel.app](https://pet-zap.vercel.app)
-
-[![Live](https://img.shields.io/badge/live-pet--zap.vercel.app-brightgreen?logo=vercel&logoColor=white)](https://pet-zap.vercel.app)
 [![CI](https://github.com/leonardochalhoub/PetZap/actions/workflows/ci.yml/badge.svg)](https://github.com/leonardochalhoub/PetZap/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
@@ -18,6 +19,10 @@ Full-stack SaaS for pet owners — add records by tap, text, or voice note via T
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?logo=tailwindcss)](https://tailwindcss.com)
 
 </div>
+
+---
+
+> **🟢 Try it now:** [**pet-zap.vercel.app**](https://pet-zap.vercel.app) — sign up, add a pet, and link Telegram to [@petzap_bot](https://t.me/petzap_bot) to register vaccines and spending by text or voice note.
 
 ---
 
@@ -398,12 +403,14 @@ CI runs the same commands on every PR via `.github/workflows/ci.yml`.
 
 ## Deployment
 
-**Vercel** is the recommended target — the project is wired for it:
+**Currently deployed at:** [**https://pet-zap.vercel.app**](https://pet-zap.vercel.app)
+
+Hosted on **Vercel** — the project is wired for it:
 
 1. Import the repo in the Vercel dashboard.
 2. Set the same env vars from `.env.local` in Project Settings → Environment Variables.
 3. `vercel.json` already declares the daily cron at 09:00 UTC.
-4. Push to `main`. Done.
+4. Push to `main`. Vercel auto-deploys every commit.
 
 > **Note:** GitHub Pages cannot host this app — it's a dynamic Next.js app with Server Actions, API routes, and server-side Supabase calls. GitHub Pages only serves static files.
 
