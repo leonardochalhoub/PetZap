@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: typecheck · lint · test · build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: |
+          if [ -f .eslintrc.json ] || [ -f eslint.config.mjs ] || [ -f eslint.config.js ]; then
+            npx next lint || true
+          else
+            echo "no eslint config — skipping"
+          fi
+
+      - name: Test
+        run: |
+          if grep -q '"test"' package.json; then
+            npm test -- --run
+          else
+            echo "no test script — skipping"
+          fi
+
+      - name: Build
+        env:
+          # Build-time placeholders — real values come from Vercel/host in prod.
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          SUPABASE_SERVICE_ROLE_KEY: placeholder
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+        run: npm run build

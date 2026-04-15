@@ -14,6 +14,14 @@ export const ptBR: Messages = {
     carouselAlt: "Momentos de cuidado",
     typingPrompt: "iniciando gestão dos pets....",
     typingOk: "OK",
+    userCountOne: "{n} tutor",
+    userCountMany: "{n} tutores",
+    statPetsOne: "{n} pet",
+    statPetsMany: "{n} pets",
+    statRecordsOne: "{n} registro",
+    statRecordsMany: "{n} registros",
+    statVisitsOne: "{n} visita",
+    statVisitsMany: "{n} visitas",
   },
   features: {
     heading: "Tudo o que você precisa, nada a mais",
@@ -311,6 +319,12 @@ export const ptBR: Messages = {
   meta: {
     title: "PetZap — Acompanhe pets, vacinas e gastos",
     description: "Gerencie as vacinas e gastos do seu pet pela web ou por mensagem no WhatsApp.",
+  },
+  cookies: {
+    title: "Usamos apenas cookies essenciais",
+    body: "O PetZap usa um cookie de sessão para manter você conectado. Sem rastreamento, sem cookies de análise.",
+    accept: "Entendi",
+    learnMore: "Privacidade",
   },
   errors: {
     noFileSelected: "Selecione um arquivo.",

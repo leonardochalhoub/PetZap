@@ -14,14 +14,36 @@ import {
 } from "@/components/landing-dashboard-preview";
 
 const CAROUSEL_IMAGES = [
-  "/carousel/20180610_113044.jpg",
-  "/carousel/20190907_115016.jpg",
-  "/carousel/IMG-20250521-WA0001.jpeg",
+  "/carousel/20180610_113044.webp",
+  "/carousel/20190907_115016.webp",
+  "/carousel/IMG-20250521-WA0001.webp",
 ];
 
 // Showcase user (Leo) whose real pets fill the landing dashboard preview.
 const SHOWCASE_USER_ID =
   process.env.NEXT_PUBLIC_SHOWCASE_USER_ID ?? "f5a4a39f-46ce-4c0a-a9c7-61936368dcea";
+
+async function rpcCount(name: string): Promise<number> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.rpc(name);
+    if (error || typeof data !== "number") return 0;
+    return data;
+  } catch {
+    return 0;
+  }
+}
+
+async function incrementAndGetVisits(): Promise<number> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.rpc("increment_landing_visit");
+    if (error) return 0;
+    return typeof data === "number" ? data : Number(data ?? 0);
+  } catch {
+    return 0;
+  }
+}
 
 async function getShowcasePets(): Promise<ShowcasePet[]> {
   try {
@@ -52,7 +74,28 @@ export default async function LandingPage() {
   if (user) redirect("/dashboard");
 
   const t = await getDictionary();
-  const showcasePets = await getShowcasePets();
+  const [showcasePets, userCount, petCount, recordsCount, visitsCount] = await Promise.all([
+    getShowcasePets(),
+    rpcCount("user_count"),
+    rpcCount("pet_count"),
+    rpcCount("records_count"),
+    incrementAndGetVisits(),
+  ]);
+
+  const fmt = new Intl.NumberFormat("pt-BR");
+  function labelFor(n: number, one: string, many: string): string {
+    return (n === 1 ? one : many).replace("{n}", fmt.format(n));
+  }
+  const stats: { emoji: string; text: string }[] = [
+    { emoji: "🐾", text: labelFor(userCount,   t.hero.userCountOne,   t.hero.userCountMany)   },
+    { emoji: "🐶", text: labelFor(petCount,    t.hero.statPetsOne,    t.hero.statPetsMany)    },
+    { emoji: "📋", text: labelFor(recordsCount, t.hero.statRecordsOne, t.hero.statRecordsMany) },
+    { emoji: "👀", text: labelFor(visitsCount, t.hero.statVisitsOne,  t.hero.statVisitsMany)  },
+  ].filter((s) => {
+    // Always show visits (just incremented so ≥1); hide zero-value stats to avoid "0 pets".
+    const n = Number(s.text.match(/[0-9]+/)?.[0] ?? "0");
+    return n > 0;
+  });
 
   const features = [
     { icon: "🐾", ...t.features.multiPet },
@@ -115,6 +158,19 @@ export default async function LandingPage() {
               {t.hero.ctaSecondary}
             </Link>
           </div>
+          {stats.length > 0 ? (
+            <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-full border border-amber-200 bg-amber-50/60 px-4 py-1.5 text-xs font-medium text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+              {stats.map((s, i) => (
+                <span key={i} className="inline-flex items-center gap-1">
+                  <span aria-hidden>{s.emoji}</span>
+                  <span>{s.text}</span>
+                  {i < stats.length - 1 ? (
+                    <span aria-hidden className="ml-2 opacity-50">·</span>
+                  ) : null}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className="mx-auto max-w-6xl px-6 pb-20">

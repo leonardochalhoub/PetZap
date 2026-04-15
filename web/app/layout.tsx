@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { I18nProvider } from "@/i18n/client";
 import { Footer } from "@/components/footer";
+import { CookieConsent } from "@/components/cookie-consent";
 import { getDictionary, getLocale } from "@/i18n/server";
 
 const geistSans = Geist({
@@ -43,6 +44,7 @@ export default async function RootLayout({
           <I18nProvider locale={locale} messages={messages}>
             <div className="flex-1 flex flex-col">{children}</div>
             <Footer />
+            <CookieConsent />
           </I18nProvider>
         </ThemeProvider>
       </body>

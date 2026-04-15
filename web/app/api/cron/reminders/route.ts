@@ -12,6 +12,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { renderReminderHtml, renderReminderSubject } from "@/lib/email/reminder";
 import { sendEmail } from "@/lib/email/send";
+import { clientKey, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { log } from "@/lib/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +37,19 @@ function isoDateOffset(days: number): string {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit first — before any work. 30 calls/hr per IP is way more than
+  // Vercel's single daily cron needs and still stops abuse.
+  const rl = await rateLimit({
+    bucket: "cron_reminders",
+    key: clientKey(req),
+    windowSeconds: 3600,
+    limit: 30,
+  });
+  if (!rl.allowed) {
+    log.warn("cron.rate_limited", { key: clientKey(req), current: rl.current });
+    return rateLimitResponse(rl);
+  }
+
   const auth = req.headers.get("authorization") ?? "";
   const expected = `Bearer ${process.env.CRON_SECRET ?? ""}`;
   if (!process.env.CRON_SECRET || auth !== expected) {

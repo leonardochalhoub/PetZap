@@ -84,6 +84,22 @@ export async function requestPasswordReset(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid email" };
   }
+
+  // Rate limit by email — 3 reset requests / hour to the same address. Stops
+  // accidental double-clicks and email-bombing. Always returns "success" to the
+  // caller so we never leak existence.
+  const { rateLimit } = await import("@/lib/rate-limit");
+  const rl = await rateLimit({
+    bucket: "forgot_password",
+    key: parsed.data.email.toLowerCase(),
+    windowSeconds: 3600,
+    limit: 3,
+  });
+  if (!rl.allowed) {
+    // Pretend it worked — same response shape.
+    return { data: { sent: true } };
+  }
+
   const supabase = await createClient();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   // Always return success — never reveal whether the email exists.

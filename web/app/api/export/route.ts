@@ -6,13 +6,14 @@
  * WhatsApp links + message audit log, user metadata. RLS-protected via
  * the user's session.
  */
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { clientKey, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -20,6 +21,15 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  // 5 exports per hour per user is plenty; caps accidental reload loops.
+  const rl = await rateLimit({
+    bucket: "export",
+    key: user.id + "|" + clientKey(req),
+    windowSeconds: 3600,
+    limit: 5,
+  });
+  if (!rl.allowed) return rateLimitResponse(rl);
 
   const meta = (user.user_metadata ?? {}) as { full_name?: string; treatment?: string };
 

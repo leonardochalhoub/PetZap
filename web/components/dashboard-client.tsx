@@ -9,6 +9,7 @@ import { WeightChart, type WeightSeriesRow } from "./weight-chart";
 import { WeightDeltaChart } from "./weight-delta-chart";
 import { AddSpendingDialog } from "./add-spending-dialog";
 import { UpcomingAlerts, type UpcomingAlert } from "./upcoming-alerts";
+import { KpiGrid } from "./dashboard/kpi-grid";
 import { reorderPets } from "@/lib/actions/pets";
 import type { SpendingCategoryKey } from "@/i18n/messages/en";
 
@@ -396,93 +397,14 @@ export function DashboardClient({
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {/* Pets — indigo */}
-        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 shadow-sm dark:border-indigo-900/40 dark:bg-indigo-950/20">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700/80 dark:text-indigo-300/80">
-            {t.dashboard.kpiPets}
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-indigo-700 dark:text-indigo-300">
-            {orderedPets.length}
-          </p>
-        </div>
-        {/* Vacinas próximas (30d) — rose */}
-        <div className="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 shadow-sm dark:border-rose-900/40 dark:bg-rose-950/20">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700/80 dark:text-rose-300/80">
-            {t.dashboard.statsUpcoming}
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-rose-700 dark:text-rose-300">
-            {upcomingCount}
-          </p>
-        </div>
-        {/* Transactions — purple */}
-        <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-4 shadow-sm dark:border-purple-900/40 dark:bg-purple-950/20">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700/80 dark:text-purple-300/80">
-            {t.dashboard.kpiTransactions}
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-purple-700 dark:text-purple-300">
-            {spendingKpis.txCount}
-          </p>
-          <p className="mt-0.5 text-[11px] text-stone-500 dark:text-zinc-500">
-            {t.dashboard.statsRecent}: {recentCount}
-          </p>
-        </div>
-        {/* Avg per transaction — teal */}
-        <div className="rounded-2xl border border-teal-200 bg-teal-50/60 p-4 shadow-sm dark:border-teal-900/40 dark:bg-teal-950/20">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-teal-700/80 dark:text-teal-300/80">
-            {t.dashboard.kpiAvgPerTransaction}
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-teal-700 dark:text-teal-300">
-            {fmtBRL(spendingKpis.avgPerTxCents)}
-          </p>
-        </div>
-        {/* This month — emerald */}
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700/80 dark:text-emerald-300/80">
-            {t.dashboard.kpiThisMonth}
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-emerald-700 dark:text-emerald-300">
-            {fmtBRL(spendingKpis.thisMonthCents)}
-          </p>
-        </div>
-        {/* Last 6 months — blue */}
-        <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 shadow-sm dark:border-blue-900/40 dark:bg-blue-950/20">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-700/80 dark:text-blue-300/80">
-            {t.dashboard.kpiLast6Months}
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-blue-700 dark:text-blue-300">
-            {fmtBRL(spendingKpis.last6Cents)}
-          </p>
-        </div>
-        {/* Projected 6 months — amber */}
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/20">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700/80 dark:text-amber-300/80">
-            {t.dashboard.kpiProjected6Months}
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-amber-700 dark:text-amber-300">
-            {fmtBRL(spendingKpis.projected6Cents)}
-          </p>
-          <p className="mt-0.5 text-[11px] text-stone-500 dark:text-zinc-500">
-            {t.dashboard.kpiProjectedHint}
-          </p>
-        </div>
-        {/* Top category — fuchsia */}
-        <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50/60 p-4 shadow-sm dark:border-fuchsia-900/40 dark:bg-fuchsia-950/20">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-fuchsia-700/80 dark:text-fuchsia-300/80">
-            {t.dashboard.kpiTopCategory}
-          </p>
-          <p className="mt-1 truncate text-lg font-semibold text-fuchsia-700 dark:text-fuchsia-300">
-            {spendingKpis.topCategory
-              ? t.spendingCategories[spendingKpis.topCategory as SpendingCategoryKey] ?? spendingKpis.topCategory
-              : t.dashboard.kpiNone}
-          </p>
-          {spendingKpis.topCategory ? (
-            <p className="mt-0.5 text-[11px] text-stone-500 dark:text-zinc-500">
-              {fmtBRL(spendingKpis.topCategoryCents)}
-            </p>
-          ) : null}
-        </div>
-      </section>
+      <KpiGrid
+        t={t}
+        petCount={orderedPets.length}
+        upcomingCount={upcomingCount}
+        recentCount={recentCount}
+        spending={spendingKpis}
+        fmtBRL={fmtBRL}
+      />
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">

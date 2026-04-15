@@ -14,6 +14,14 @@ export type Messages = {
     carouselAlt: string;
     typingPrompt: string;
     typingOk: string;
+    userCountOne: string;
+    userCountMany: string;
+    statPetsOne: string;
+    statPetsMany: string;
+    statRecordsOne: string;
+    statRecordsMany: string;
+    statVisitsOne: string;
+    statVisitsMany: string;
   };
   features: {
     heading: string;
@@ -275,6 +283,12 @@ export type Messages = {
     otp: string;
   };
   meta: { title: string; description: string };
+  cookies: {
+    title: string;
+    body: string;
+    accept: string;
+    learnMore: string;
+  };
   errors: {
     noFileSelected: string;
     photoTooBig: string;
@@ -297,6 +311,14 @@ export const en: Messages = {
     carouselAlt: "Pet care moments",
     typingPrompt: "starting pet management....",
     typingOk: "OK",
+    userCountOne: "{n} pet parent",
+    userCountMany: "{n} pet parents",
+    statPetsOne: "{n} pet",
+    statPetsMany: "{n} pets",
+    statRecordsOne: "{n} record",
+    statRecordsMany: "{n} records",
+    statVisitsOne: "{n} visit",
+    statVisitsMany: "{n} visits",
   },
   features: {
     heading: "Everything you need, nothing you don't",
@@ -593,6 +615,12 @@ export const en: Messages = {
   meta: {
     title: "PetZap — Track pets, vaccines and spendings",
     description: "Manage your pets' vaccines and spendings from the web or by texting WhatsApp.",
+  },
+  cookies: {
+    title: "We use essential cookies only",
+    body: "PetZap uses a session cookie to keep you signed in. No tracking, no analytics cookies.",
+    accept: "OK, got it",
+    learnMore: "Privacy",
   },
   errors: {
     noFileSelected: "Select a file.",

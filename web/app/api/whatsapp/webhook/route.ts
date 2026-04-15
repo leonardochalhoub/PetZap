@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyMetaSignature } from "@/lib/whatsapp/verify";
 import { processIncomingMessage } from "@/lib/whatsapp/persist";
 import { sendWhatsappText } from "@/lib/whatsapp/send";
+import { clientKey, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { log } from "@/lib/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,11 +33,24 @@ export async function GET(req: NextRequest) {
  * Always returns 200 (unless HMAC fails) so Meta does not retry.
  */
 export async function POST(req: NextRequest) {
+  // Rate limit BEFORE doing any crypto work — protects from spray attacks.
+  // 600 requests/hour per IP is well above Meta's real traffic (usually <1/sec per number).
+  const rl = await rateLimit({
+    bucket: "whatsapp_webhook",
+    key: clientKey(req),
+    windowSeconds: 3600,
+    limit: 600,
+  });
+  if (!rl.allowed) {
+    log.warn("whatsapp.rate_limited", { key: clientKey(req), current: rl.current });
+    return rateLimitResponse(rl);
+  }
+
   let rawBody: string;
   try {
     rawBody = await req.text();
   } catch (err) {
-    console.error("[whatsapp.webhook] failed to read body", err);
+    log.error("whatsapp.webhook.body_read_failed", err);
     return new NextResponse("", { status: 200 });
   }
 
