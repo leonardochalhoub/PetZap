@@ -36,7 +36,7 @@ Full-stack SaaS for pet owners — add records by tap, text, or voice note via T
 - [Quickstart](#quickstart)
 - [Environment variables](#environment-variables)
 - [Database](#database)
-- [WhatsApp ingestion](#whatsapp-ingestion)
+- [Telegram ingestion](#telegram-ingestion)
 - [Email reminders](#email-reminders)
 - [Internationalization](#internationalization)
 - [Testing](#testing)
@@ -61,7 +61,6 @@ PetZap is a multi-tenant pet management app designed for **100 users on free-tie
 | **Medications** | Recurring prescriptions with auto-calculated next-due dates. |
 | **Telegram capture (text + audio)** | Send a text or voice note like _"Comprei ração 120 reais para Poli hoje"_ to [@petzap_bot](https://t.me/petzap_bot) — Gemini transcribes + parses the intent; a regex safety net fills in anything the LLM drops. Multi-intent messages work: *"Rex tomou V10 e gastei 80 reais com ração"* creates two rows. |
 | **Weight tracking** | Log pet weight via the web app or Telegram (*"Poli se pesou e tem 8,5kg hoje"*). Trend chart per pet. |
-| **WhatsApp capture (parked)** | Meta webhook + HMAC verification code kept in the repo. Blocked in production because Meta's test number refuses delivery to Brazilian recipients (`error 130497`) — will re-enable once a verified business number is registered. |
 | **Email reminders** | Daily cron finds vaccines/meds due in 7 and 14 days, emails the owner. Idempotent via `reminders_sent`. |
 | **Dashboard** | 8 KPI tiles, Plotly spending chart, pie breakdown, weight delta chart, upcoming-alerts banner. |
 | **Data export** | One-click JSON dump of everything the user owns. Rate-limited, LGPD-friendly. |
@@ -103,9 +102,9 @@ PetZap is a multi-tenant pet management app designed for **100 users on free-tie
     │   ┌───────────────┐   ┌──────────────┐   ┌────────────────┐  │
     │   │ Server Actions│   │ API routes   │   │ Cron (daily)   │  │
     │   │ auth / pets / │   │ /export      │   │ /cron/reminders│  │
-    │   │ vaccines /    │   │ /whatsapp    │   └────────┬───────┘  │
+    │   │ vaccines /    │   │ /telegram    │   └────────┬───────┘  │
     │   │ spendings /   │   │   /webhook   │            │          │
-    │   │ whatsapp /    │   └──────┬───────┘            │          │
+    │   │ telegram /    │   └──────┬───────┘            │          │
     │   │ weights       │          │                    │          │
     │   └───────┬───────┘          │                    │          │
     │           │                  │                    │          │
@@ -151,7 +150,7 @@ PetZap is a multi-tenant pet management app designed for **100 users on free-tie
 ### Backend
 - **Supabase** — Postgres, Auth (email + password + magic link), Storage (pet photos), Management API for migrations
 - **Google Gemini 2.5 Flash** — `responseSchema`-based structured output for PT-BR NLU
-- **Meta WhatsApp Business Cloud API** — inbound webhook with HMAC-SHA256 signature verification
+- **Meta Telegram Business Cloud API** — inbound webhook with HMAC-SHA256 signature verification
 - **Resend** — transactional email
 - **Sentry** — error tracking (optional, dynamic import)
 
@@ -201,7 +200,7 @@ petzap-saas/
     │
     ├── lib/
     │   ├── actions/              # Server Actions (auth, pets, vaccines,
-    │   │                         #   spendings, weights, whatsapp, locale)
+    │   │                         #   spendings, weights, telegram, locale)
     │   ├── supabase/             # ssr, admin, browser clients
     │   ├── whatsapp/             # verify, parse, persist, send, schemas
     │   ├── email/                # reminder template + send helper
@@ -224,7 +223,7 @@ petzap-saas/
 - A free **Supabase** project ([supabase.com](https://supabase.com))
 - A **Google AI Studio** API key for Gemini ([aistudio.google.com/apikey](https://aistudio.google.com/apikey))
 - _(optional)_ **Resend** account for email ([resend.com](https://resend.com))
-- _(optional)_ **Meta WhatsApp Business** app for ingestion
+- _(optional)_ **Meta Telegram Business** app for ingestion
 
 ### 1. Clone & install
 
@@ -287,7 +286,7 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" \
 | `TELEGRAM_BOT_TOKEN` | yes | From [@BotFather](https://t.me/BotFather) on Telegram |
 | `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` | yes | Bot username (e.g. `petzap_bot`), used in the deep-link account-linking URL |
 | `TELEGRAM_WEBHOOK_SECRET` | yes | Random secret passed to Telegram `setWebhook` + verified on every incoming request |
-| `META_VERIFY_TOKEN` | optional (WhatsApp parked) | WhatsApp code is dormant; set only if re-enabling |
+| `META_VERIFY_TOKEN` | optional (WhatsApp parked) | Meta WhatsApp Business code is dormant in the repo; set only if re-enabling |
 | `META_APP_SECRET` | optional | Same as above |
 | `META_PHONE_NUMBER_ID` | optional | Same as above |
 | `META_ACCESS_TOKEN` | optional | Same as above |
@@ -320,24 +319,34 @@ Every user-owned table has RLS enabled with `auth.uid() = user_id` on SELECT / I
 
 ---
 
-## WhatsApp ingestion
+## Telegram ingestion
 
 ```
 ┌─────────────┐   POST     ┌──────────────────┐   parse    ┌──────────────┐
-│ User's      │  webhook   │ /api/whatsapp/   │  ─────►    │ Gemini 2.5   │
-│ WhatsApp    │ ─────────► │   webhook        │            │ Flash        │
-│ (Meta)      │            │                  │  ◄─────    │ structured   │
-└─────────────┘            │ 1. verify HMAC   │   JSON     │ response     │
-                           │ 2. rate-limit    │            └──────────────┘
+│ User's      │  webhook   │ /api/telegram/   │  ─────►    │ Gemini 2.5   │
+│ Telegram    │ ─────────► │   webhook        │            │ Flash-Lite   │
+│ (text+voice)│            │                  │  ◄─────    │ (multimodal) │
+└─────────────┘            │ 1. verify secret │   JSON     └──────────────┘
+                           │ 2. rate-limit    │
                            │ 3. parse (NLU)   │
                            │ 4. persist row   │
                            │ 5. send receipt  │
                            └──────────────────┘
 ```
 
-Supported intents: `spending`, `vaccine`, `weight`, `note`. Gemini returns a typed JSON object matching a zod schema; persistence picks the right table based on `intent`.
+Users link their Telegram account with a one-time `t.me/petzap_bot?start=<token>` deep link. After that, text OR voice-note messages flow through the webhook, which:
 
-Example: _"gastei 80 reais de ração premium pro Rex"_ → `{ intent: "spending", pet: "Rex", category: "food", amount_brl: 80, note: "ração premium" }`.
+1. Verifies `X-Telegram-Bot-Api-Secret-Token` against `TELEGRAM_WEBHOOK_SECRET`
+2. Downloads the voice file when present (via `getFile` → CDN fetch)
+3. Sends either the text or the audio bytes + prompt to Gemini in a single multimodal call — transcript + intents come back together
+4. Validates each intent with zod; rescues missing fields (amount, category, date) via regex heuristics over the transcript
+5. Inserts into `spendings` / `vaccines` / `pet_weights` and replies with per-intent confirmations
+
+Supported intents: `spending`, `vaccine`, `weight`, `unknown`. Multi-intent messages are handled — one bot message can emit multiple records.
+
+Example:
+- *"Comprei ração premium 15kg pro Rex hoje, 80 reais"* → `{ intent: "spending", pet: "Rex", category: "food", amount: 80, description: "ração premium 15kg" }`
+- *"Dora está pesando 8,5kg"* (voice note) → Gemini transcribes + `{ intent: "weight", pet: "Dora", weight_kg: 8.5, measured_at: today }`
 
 ---
 
@@ -420,7 +429,7 @@ Hosted on **Vercel** — the project is wired for it:
 
 - **RLS on every user-scoped table.** No server code relies on filtering by `user_id` — the DB enforces it.
 - **Service-role key never leaves the server.** Admin client is lazy-instantiated in Node runtime handlers only.
-- **HMAC verification** on WhatsApp webhook using `META_APP_SECRET`.
+- **Secret-token verification** on the Telegram webhook (`X-Telegram-Bot-Api-Secret-Token` compared in constant time).
 - **Rate limits** on public endpoints: 30/hr cron, 5/hr/user export, 600/hr webhook, 3/hr/email forgot-password.
 - **zod validation** at every server-action and API route boundary.
 - **Cookie consent** banner (LGPD/GDPR).

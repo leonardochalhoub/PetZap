@@ -28,13 +28,13 @@ export const ptBR: Messages = {
     multiPet: { title: "Vários pets", desc: "Todos os seus animais em um só lugar." },
     vaccines: { title: "Lembretes de vacina", desc: "Nunca perca uma próxima dose." },
     spending: { title: "Controle de gastos", desc: "Veja para onde vai cada real." },
-    whatsapp: { title: "Registro por WhatsApp", desc: "Nos mande uma mensagem — cuidamos do resto." },
+    whatsapp: { title: "Registro por Telegram", desc: "Nos mande uma mensagem — cuidamos do resto." },
     private: { title: "Privado por padrão", desc: "Segurança em nível de linha em cada registro." },
     free: { title: "Grátis para uso pessoal", desc: "100% grátis na sua escala." },
   },
   closing: {
     title: "Comece a cuidar do seu pet hoje",
-    subtitle: "Grátis. Privado. Funciona por WhatsApp.",
+    subtitle: "Grátis. Privado. Funciona por Telegram.",
     cta: "Criar minha conta",
   },
   footer: {
@@ -47,7 +47,7 @@ export const ptBR: Messages = {
   nav: {
     dashboard: "Painel",
     pets: "Pets",
-    whatsapp: "WhatsApp",
+    whatsapp: "Telegram",
     telegram: "Telegram",
     signOut: "Sair",
     signIn: "Entrar",
@@ -265,7 +265,7 @@ export const ptBR: Messages = {
     descriptionLabel: "Descrição",
   },
   whatsapp: {
-    title: "WhatsApp",
+    title: "Telegram",
     subtitle:
       "Vincule seu telefone para registrar vacinas e gastos por mensagem.",
     linkedPhone: "Telefone vinculado",
@@ -351,7 +351,7 @@ export const ptBR: Messages = {
   },
   meta: {
     title: "PetZap — Acompanhe pets, vacinas e gastos",
-    description: "Gerencie as vacinas e gastos do seu pet pela web ou por mensagem no WhatsApp.",
+    description: "Gerencie as vacinas e gastos do seu pet pela web ou por mensagem no Telegram.",
   },
   cookies: {
     title: "Usamos apenas cookies essenciais",

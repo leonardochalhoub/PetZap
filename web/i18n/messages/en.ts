@@ -357,13 +357,13 @@ export const en: Messages = {
     multiPet: { title: "Multiple pets", desc: "All your animals in one place." },
     vaccines: { title: "Vaccine reminders", desc: "Never miss a next-due date." },
     spending: { title: "Spending tracker", desc: "See where every real goes." },
-    whatsapp: { title: "WhatsApp logging", desc: "Text us — we'll log it for you." },
+    whatsapp: { title: "Telegram logging", desc: "Text us — we'll log it for you." },
     private: { title: "Private by default", desc: "Row-level security on every record." },
     free: { title: "Free for personal use", desc: "100% free at your scale." },
   },
   closing: {
     title: "Start tracking your pets today",
-    subtitle: "Free. Private. Works by WhatsApp.",
+    subtitle: "Free. Private. Works by Telegram.",
     cta: "Create your account",
   },
   footer: {
@@ -376,7 +376,7 @@ export const en: Messages = {
   nav: {
     dashboard: "Dashboard",
     pets: "Pets",
-    whatsapp: "WhatsApp",
+    whatsapp: "Telegram",
     telegram: "Telegram",
     signOut: "Sign out",
     signIn: "Sign in",
@@ -594,7 +594,7 @@ export const en: Messages = {
     descriptionLabel: "Description",
   },
   whatsapp: {
-    title: "WhatsApp",
+    title: "Telegram",
     subtitle: "Link your phone to log pets' vaccines and spendings by texting.",
     linkedPhone: "Linked phone",
     verified: "Verified",
@@ -678,7 +678,7 @@ export const en: Messages = {
   },
   meta: {
     title: "PetZap — Track pets, vaccines and spendings",
-    description: "Manage your pets' vaccines and spendings from the web or by texting WhatsApp.",
+    description: "Manage your pets' vaccines and spendings from the web or by texting Telegram.",
   },
   cookies: {
     title: "We use essential cookies only",
