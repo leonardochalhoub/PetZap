@@ -1,0 +1,63 @@
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { signOut } from "@/lib/actions/auth";
+import { getDictionary } from "@/i18n/server";
+import { Brand } from "./brand";
+import { ThemeToggle } from "./theme-toggle";
+import { LocaleToggle } from "./locale-toggle";
+
+export async function Nav() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const t = await getDictionary();
+
+  return (
+    <header className="sticky top-0 z-10 border-b border-stone-200/70 bg-white/80 backdrop-blur dark:border-zinc-800/70 dark:bg-zinc-950/80">
+      <nav className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="flex items-center gap-6">
+          <Brand href="/dashboard" />
+          <div className="hidden items-center gap-1 text-sm sm:flex">
+            <Link
+              href="/dashboard"
+              className="rounded-md px-3 py-1.5 text-stone-700 hover:bg-stone-100 dark:text-zinc-200 dark:hover:bg-zinc-900"
+            >
+              {t.nav.dashboard}
+            </Link>
+            <Link
+              href="/settings/whatsapp"
+              className="rounded-md px-3 py-1.5 text-stone-700 hover:bg-stone-100 dark:text-zinc-200 dark:hover:bg-zinc-900"
+            >
+              {t.nav.whatsapp}
+            </Link>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <LocaleToggle />
+          {user ? (
+            <form action={signOut} className="ml-1 flex items-center gap-2">
+              <span className="hidden text-xs text-stone-500 dark:text-zinc-400 md:inline">
+                {user.email}
+              </span>
+              <button
+                type="submit"
+                className="rounded-md border border-stone-200 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              >
+                {t.nav.signOut}
+              </button>
+            </form>
+          ) : (
+            <Link
+              href="/login"
+              className="ml-1 rounded-md border border-stone-200 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+            >
+              {t.nav.signIn}
+            </Link>
+          )}
+        </div>
+      </nav>
+    </header>
+  );
+}
