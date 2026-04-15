@@ -82,10 +82,12 @@ export function extractSpentAt(text: string, todayIso: string): string | null {
 export function extractWeightKg(text: string): number | null {
   if (!text) return null;
   const patterns: RegExp[] = [
-    /\b(\d{1,3}(?:[,.]\d{1,2})?)\s*(?:kg|quilos?|k)\b/i,
+    /\b(\d{1,3}(?:[,.]\d{1,2})?)\s*(?:kg|quilos?|k\b)/i,
     /\btem\s+(\d{1,3}(?:[,.]\d{1,2})?)\b/i,
     /\bpesa\s+(\d{1,3}(?:[,.]\d{1,2})?)\b/i,
     /\bpesou\s+(\d{1,3}(?:[,.]\d{1,2})?)\b/i,
+    /\bpesando\s+(\d{1,3}(?:[,.]\d{1,2})?)\b/i,
+    /\best[aá]\s+com\s+(\d{1,3}(?:[,.]\d{1,2})?)\b/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
