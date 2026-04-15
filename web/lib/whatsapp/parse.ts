@@ -80,6 +80,8 @@ function buildSystemInstruction(petNames: string[]): string {
     "- Hygiene items ('tapete higiênico', 'areia', 'shampoo') → intent=spending, category=hygiene.",
     "- 'hoje'/'today'=today, 'ontem'=yesterday, 'anteontem'=2 days ago, 'amanhã'=tomorrow.",
     "- 'em 1 ano'/'em 1 mês'/'em X dias' → compute absolute ISO date from today.",
+    "- For a spending intent, you MUST provide amount (number), category (one of the list), spent_at (YYYY-MM-DD), and pet_name. If ANY of those is missing from the message, return intent=unknown with a `reason` naming the missing field.",
+    "- For a vaccine intent, you MUST provide pet_name, vaccine_name, and given_date. If missing, return intent=unknown.",
     "- If the message doesn't describe any vaccine or spending, return a single intent with intent=unknown and a short `reason` in pt-BR.",
     "",
     "Examples:",
@@ -98,7 +100,9 @@ async function callGemini(input: ParserInput, petNames: string[]): Promise<unkno
   const apiKey = process.env.GEMINI_API_KEY!;
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    // 2.5-flash-lite has a much higher free-tier daily cap than 2.5-flash
+    // (1000/day vs 20/day as of Apr 2026) and is sufficient for our parsing.
+    model: "gemini-2.5-flash-lite",
     systemInstruction: buildSystemInstruction(petNames),
     generationConfig: {
       responseMimeType: "application/json",
@@ -199,8 +203,16 @@ export async function parseInput(
       stack: e?.stack?.split("\n").slice(0, 5).join(" | ") ?? null,
     };
     log.error("parse.gemini_failed", details);
-    // Also emit to stdout so it's impossible to miss in Vercel logs.
     console.error("[parse.gemini_failed]", JSON.stringify(details));
+
+    // Distinguish rate-limit/quota failures so the user sees a useful message.
+    const msg = details.message.toLowerCase();
+    if (details.status === 429 || msg.includes("quota") || msg.includes("too many")) {
+      return [{
+        intent: "unknown",
+        reason: "Limite de uso atingido. Tente de novo em 1 minuto.",
+      }];
+    }
     return [{ intent: "unknown", reason: "Falha ao chamar o parser." }];
   }
 }

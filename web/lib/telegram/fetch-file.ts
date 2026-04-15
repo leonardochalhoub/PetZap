@@ -41,7 +41,17 @@ export async function downloadTelegramFile(
     }
     const arr = await fileRes.arrayBuffer();
     const bytes = Buffer.from(arr);
-    const mime = fileRes.headers.get("content-type") ?? fallbackMime;
+    // Telegram's file-serving endpoint often returns "application/octet-stream"
+    // in the HTTP content-type regardless of the actual media kind. Trust the
+    // caller-provided fallback (from the Telegram message metadata) first — it
+    // reflects what Telegram itself declared the file to be.
+    const headerMime = fileRes.headers.get("content-type") ?? "";
+    const mime =
+      fallbackMime && fallbackMime !== "application/octet-stream"
+        ? fallbackMime
+        : headerMime && headerMime !== "application/octet-stream"
+          ? headerMime
+          : "audio/ogg";
     return { bytes, mime };
   } catch (err) {
     log.error("telegram.fetch.exception", err);
