@@ -42,6 +42,39 @@ export async function addVaccine(
   return { data: { ok: true } };
 }
 
+export async function updateVaccine(
+  vaccineId: string,
+  petId: string,
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const parsed = VaccineInputSchema.safeParse({
+    pet_id: petId,
+    name: formData.get("name"),
+    given_date: formData.get("given_date"),
+    next_date: emptyToNull(formData.get("next_date")),
+    notes: emptyToNull(formData.get("notes")),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const { pet_id: _pid, ...update } = parsed.data;
+  const { error } = await supabase
+    .from("vaccines")
+    .update(update)
+    .eq("id", vaccineId);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/pets/${petId}`);
+  revalidatePath("/dashboard");
+  return { data: { ok: true } };
+}
+
 export async function deleteVaccine(vaccineId: string, petId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const {

@@ -40,6 +40,15 @@ export const SpendingIntentSchema = z.object({
 });
 export type SpendingIntent = z.infer<typeof SpendingIntentSchema>;
 
+export const WeightIntentSchema = z.object({
+  intent: z.literal("weight"),
+  pet_name: z.string().min(1),
+  weight_kg: z.number().positive().max(200),
+  measured_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "ISO date (YYYY-MM-DD)"),
+  notes: z.string().optional(),
+});
+export type WeightIntent = z.infer<typeof WeightIntentSchema>;
+
 export const UnknownIntentSchema = z.object({
   intent: z.literal("unknown"),
   reason: z.string().min(1),
@@ -49,6 +58,7 @@ export type UnknownIntent = z.infer<typeof UnknownIntentSchema>;
 export const ParsedIntentSchema = z.discriminatedUnion("intent", [
   VaccineIntentSchema,
   SpendingIntentSchema,
+  WeightIntentSchema,
   UnknownIntentSchema,
 ]);
 export type ParsedIntent = z.infer<typeof ParsedIntentSchema>;

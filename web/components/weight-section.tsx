@@ -8,7 +8,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { addWeight, deleteWeight } from "@/lib/actions/weights";
+import { addWeight, deleteWeight, updateWeight } from "@/lib/actions/weights";
 import type { ActionResult } from "@/lib/actions/auth";
 import { SubmitButton } from "./submit-button";
 import { useT, useLocale } from "@/i18n/client";
@@ -45,6 +45,7 @@ export function WeightSection({
   const locale = useLocale();
   const [weights, setWeights] = useState<WeightRow[]>(initialWeights);
   const [isDeleting, startDeleteTransition] = useTransition();
+  const [editingId, setEditingId] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   const action = addWeight.bind(null, petId);
@@ -156,31 +157,138 @@ export function WeightSection({
         ) : (
           <ul className="divide-y divide-stone-100 dark:divide-zinc-800">
             {weights.slice(0, 10).map((w) => (
-              <li key={w.id} className="flex items-center justify-between py-2.5">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-stone-900 dark:text-zinc-50">
-                    <span className="font-medium">{w.weight_kg}</span>{" "}
-                    <span className="text-xs text-stone-500 dark:text-zinc-500">
-                      {t.pets.weightUnitShort} · {formatDate(w.measured_at, locale)}
-                    </span>
-                  </p>
-                  {w.notes ? (
-                    <p className="mt-0.5 text-xs text-stone-500 dark:text-zinc-400">{w.notes}</p>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  disabled={isDeleting || isAdding || w.id.startsWith("temp-")}
-                  onClick={() => handleDelete(w.id)}
-                  className="shrink-0 text-xs text-red-600 hover:text-red-700 disabled:text-red-300 dark:text-red-400 dark:hover:text-red-300"
-                >
-                  {t.spendings.deleteBtn}
-                </button>
+              <li key={w.id} className="py-2.5">
+                {editingId === w.id ? (
+                  <EditWeightRow
+                    petId={petId}
+                    weight={w}
+                    onDone={(updated) => {
+                      if (updated) {
+                        setWeights((prev) =>
+                          prev
+                            .map((x) => (x.id === w.id ? { ...x, ...updated } : x))
+                            .sort((a, b) => (a.measured_at < b.measured_at ? 1 : -1)),
+                        );
+                      }
+                      setEditingId(null);
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-stone-900 dark:text-zinc-50">
+                        <span className="font-medium">{w.weight_kg}</span>{" "}
+                        <span className="text-xs text-stone-500 dark:text-zinc-500">
+                          {t.pets.weightUnitShort} · {formatDate(w.measured_at, locale)}
+                        </span>
+                      </p>
+                      {w.notes ? (
+                        <p className="mt-0.5 text-xs text-stone-500 dark:text-zinc-400">{w.notes}</p>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
+                      <button
+                        type="button"
+                        disabled={w.id.startsWith("temp-")}
+                        onClick={() => setEditingId(w.id)}
+                        className="text-stone-600 hover:text-stone-900 disabled:text-stone-300 dark:text-zinc-400 dark:hover:text-zinc-100"
+                      >
+                        {t.common.edit}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isDeleting || isAdding || w.id.startsWith("temp-")}
+                        onClick={() => handleDelete(w.id)}
+                        className="text-red-600 hover:text-red-700 disabled:text-red-300 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        {t.spendings.deleteBtn}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
         )}
       </div>
     </section>
+  );
+}
+
+function EditWeightRow({
+  petId,
+  weight,
+  onDone,
+}: {
+  petId: string;
+  weight: WeightRow;
+  onDone: (updated: Partial<WeightRow> | null) => void;
+}) {
+  const t = useT();
+  const [state, formAction, isPending] = useActionState<ActionResult | undefined, FormData>(
+    (prev, fd) => updateWeight(weight.id, petId, prev, fd),
+    undefined,
+  );
+  const rowInput =
+    "w-full rounded-md border border-stone-300 bg-white px-2 py-1 text-sm text-stone-900 placeholder-stone-400 focus:border-stone-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-zinc-400";
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const kg = Number(String(fd.get("weight_kg") ?? "").replace(",", "."));
+    const date = String(fd.get("measured_at") ?? "");
+    const notes = String(fd.get("notes") ?? "") || null;
+    startTransition(() => formAction(fd));
+    if (Number.isFinite(kg) && kg > 0 && date) {
+      onDone({ weight_kg: kg, measured_at: date, notes });
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <input
+          name="weight_kg"
+          type="number"
+          step="0.1"
+          min="0.1"
+          max="199"
+          inputMode="decimal"
+          required
+          defaultValue={weight.weight_kg}
+          className={rowInput}
+        />
+        <input
+          name="measured_at"
+          type="date"
+          required
+          defaultValue={weight.measured_at}
+          className={rowInput}
+        />
+        <input
+          name="notes"
+          defaultValue={weight.notes ?? ""}
+          placeholder={t.pets.weightNotes}
+          className={rowInput}
+        />
+      </div>
+      {state?.error ? <p className="text-xs text-red-600 dark:text-red-400">{state.error}</p> : null}
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={isPending}
+          className="rounded-md bg-stone-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-stone-800 disabled:bg-stone-400 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+        >
+          {isPending ? t.common.saving : t.common.save}
+        </button>
+        <button
+          type="button"
+          onClick={() => onDone(null)}
+          className="rounded-md border border-stone-300 px-3 py-1.5 text-xs text-stone-700 hover:bg-stone-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          {t.common.cancel}
+        </button>
+      </div>
+    </form>
   );
 }

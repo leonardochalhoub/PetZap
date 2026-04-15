@@ -6,9 +6,9 @@ export const ptBR: Messages = {
   theme: { toggle: "Alternar tema", light: "Modo claro", dark: "Modo escuro" },
   hero: {
     eyebrow: "Cuidados com o pet, sem esforço",
-    title: "Acompanhe o cuidado do seu pet, por toque ou mensagem",
+    title: "Acompanhe o cuidado do seu pet, por toque, texto ou áudio",
     subtitle:
-      "Vacinas, gastos e lembretes — adicione manualmente ou pelo WhatsApp; receba avisos por e-mail e WhatsApp sobre datas importantes como vacinas e remédios.",
+      "Vacinas, gastos, peso e lembretes — adicione manualmente ou mande texto ou áudio pelo Telegram; receba avisos por e-mail sobre datas importantes como vacinas e remédios.",
     ctaPrimary: "Comece grátis",
     ctaSecondary: "Entrar",
     carouselAlt: "Momentos de cuidado",
@@ -211,6 +211,12 @@ export const ptBR: Messages = {
     weightInitial: "Peso atual (kg, opcional)",
     weightInitialHint: "Você também pode adicionar pesos depois para acompanhar a evolução.",
   },
+  common: {
+    edit: "Editar",
+    save: "Salvar",
+    saving: "Salvando...",
+    cancel: "Cancelar",
+  },
   vaccines: {
     heading: "Vacinas",
     emptyInline: "Nenhuma vacina registrada.",
@@ -226,6 +232,10 @@ export const ptBR: Messages = {
     next: "Próxima",
     deleteBtn: "Excluir",
     deleteConfirm: "Excluir este registro de vacina?",
+    nameLabel: "Nome",
+    givenLabel: "Aplicada em",
+    nextLabel: "Próxima",
+    notesLabel: "Observações",
   },
   spendings: {
     heading: "Gastos",
@@ -249,6 +259,10 @@ export const ptBR: Messages = {
     repeatHint: "Enviaremos um e-mail 2 semanas e 1 semana antes da próxima dose.",
     nextDue: "Data da próxima dose",
     nextDueShort: "Próxima:",
+    amountLabel: "Valor",
+    categoryLabel: "Categoria",
+    spentAtLabel: "Data",
+    descriptionLabel: "Descrição",
   },
   whatsapp: {
     title: "WhatsApp",

@@ -153,6 +153,13 @@ export async function processIncomingMessage(
     return { reply };
   }
 
+  // Weight intents aren't handled on the dormant WhatsApp path (use Telegram instead).
+  if (parsed.intent === "weight") {
+    const reply = "Registro de peso disponível apenas via Telegram por enquanto.";
+    await finalize(reply, { status: "replied", intent: "unknown", parsed, userId });
+    return { reply };
+  }
+
   // 7. Resolve pet
   if (petList.length === 0) {
     const reply =

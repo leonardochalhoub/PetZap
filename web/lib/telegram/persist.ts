@@ -261,6 +261,25 @@ export async function processIncomingTelegram(ctx: ChatContext): Promise<void> {
       continue;
     }
 
+    if (parsed.intent === "weight") {
+      const { error: wErr } = await supabase.from("pet_weights").insert({
+        pet_id: pet.id,
+        weight_kg: parsed.weight_kg,
+        measured_at: parsed.measured_at,
+        notes: parsed.notes ?? null,
+      });
+      if (wErr) {
+        const line = `Falhou salvar peso de ${pet.name}.`;
+        replyLines.push(`❌ ${line}`);
+        executed.push({ intent: parsed, ok: false, line });
+      } else {
+        const line = `Peso <b>${parsed.weight_kg} kg</b> para <b>${pet.name}</b> em ${parsed.measured_at}.`;
+        replyLines.push(`✅ ${line}`);
+        executed.push({ intent: parsed, ok: true, line });
+      }
+      continue;
+    }
+
     // spending
     const amountCents = Math.round(parsed.amount * 100);
     const { error: sErr } = await supabase.from("spendings").insert({
@@ -294,8 +313,13 @@ export async function processIncomingTelegram(ctx: ChatContext): Promise<void> {
       : "failed";
 
   // telegram_messages.intent has a CHECK constraint: vaccine|spending|unknown|onboarding|link.
-  // For multi-intent messages, store null and rely on parsed_json for the full array.
-  const intentForRow = intents.length === 1 ? intents[0].intent : null;
+  // For multi-intent messages or intents outside that set (e.g. weight), store null
+  // and rely on parsed_json for the full array.
+  const ALLOWED_INTENT_VALUES = new Set(["vaccine", "spending", "unknown", "onboarding", "link"]);
+  const intentForRow =
+    intents.length === 1 && ALLOWED_INTENT_VALUES.has(intents[0].intent)
+      ? intents[0].intent
+      : null;
 
   await replyAndFinalize(replyBody, {
     status: finalStatus,

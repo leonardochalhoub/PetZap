@@ -113,6 +113,49 @@ export async function addSpendingMulti(
   return { data: { count: rows.length } };
 }
 
+export async function updateSpending(
+  spendingId: string,
+  petId: string,
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const amountRaw = formData.get("amount");
+  const amountStr = amountRaw == null ? "" : String(amountRaw).trim().replace(",", ".");
+  const amountNum = Number(amountStr);
+  if (!amountStr || Number.isNaN(amountNum) || amountNum < 0) {
+    return { error: "Amount must be a non-negative number" };
+  }
+  const amount_cents = Math.round(amountNum * 100);
+
+  const parsed = SpendingInputSchema.safeParse({
+    pet_id: petId,
+    amount_cents,
+    currency: (formData.get("currency") ?? "BRL").toString().toUpperCase(),
+    category: formData.get("category"),
+    spent_at: formData.get("spent_at"),
+    description: emptyToNull(formData.get("description")),
+    next_due: emptyToNull(formData.get("next_due")),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const { pet_id: _pid, ...update } = parsed.data;
+  const { error } = await supabase
+    .from("spendings")
+    .update(update)
+    .eq("id", spendingId);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/pets/${petId}`);
+  revalidatePath("/dashboard");
+  return { data: { ok: true } };
+}
+
 export async function deleteSpending(spendingId: string, petId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const {

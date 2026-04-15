@@ -79,6 +79,24 @@ export function extractSpentAt(text: string, todayIso: string): string | null {
   return null;
 }
 
+export function extractWeightKg(text: string): number | null {
+  if (!text) return null;
+  const patterns: RegExp[] = [
+    /\b(\d{1,3}(?:[,.]\d{1,2})?)\s*(?:kg|quilos?|k)\b/i,
+    /\btem\s+(\d{1,3}(?:[,.]\d{1,2})?)\b/i,
+    /\bpesa\s+(\d{1,3}(?:[,.]\d{1,2})?)\b/i,
+    /\bpesou\s+(\d{1,3}(?:[,.]\d{1,2})?)\b/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m?.[1]) {
+      const n = parseFloat(m[1].replace(",", "."));
+      if (Number.isFinite(n) && n > 0 && n < 200) return n;
+    }
+  }
+  return null;
+}
+
 export function extractRelativeNextDue(text: string, fromIso: string): string | null {
   const h = normalize(text);
   const base = new Date(`${fromIso}T12:00:00Z`);

@@ -71,7 +71,7 @@ export async function signOut(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
-  redirect("/login");
+  redirect("/");
 }
 
 const EmailOnlySchema = z.object({ email: z.string().email("Invalid email") });

@@ -12,6 +12,7 @@ import {
   extractAmount,
   extractRelativeNextDue,
   extractSpentAt,
+  extractWeightKg,
   inferCategory,
 } from "@/lib/intent/heuristics";
 
@@ -29,7 +30,7 @@ const intentSchemaForGemini = {
   properties: {
     intent: {
       type: SchemaType.STRING,
-      enum: ["vaccine", "spending", "unknown"],
+      enum: ["vaccine", "spending", "weight", "unknown"],
     },
     pet_name: { type: SchemaType.STRING, nullable: true },
     // vaccine
@@ -47,6 +48,9 @@ const intentSchemaForGemini = {
     spent_at: { type: SchemaType.STRING, nullable: true },
     description: { type: SchemaType.STRING, nullable: true },
     next_due: { type: SchemaType.STRING, nullable: true },
+    // weight
+    weight_kg: { type: SchemaType.NUMBER, nullable: true },
+    measured_at: { type: SchemaType.STRING, nullable: true },
     // unknown
     reason: { type: SchemaType.STRING, nullable: true },
   },
@@ -159,6 +163,36 @@ function rescuePartialIntent(raw: unknown, originalText: string): ParsedIntent |
     };
   }
 
+  if (intent === "weight") {
+    const weightKg =
+      typeof obj.weight_kg === "number" && obj.weight_kg > 0
+        ? obj.weight_kg
+        : extractWeightKg(originalText);
+    const measuredAt =
+      typeof obj.measured_at === "string"
+        ? obj.measured_at
+        : (extractSpentAt(originalText, todayIso) ?? todayIso);
+    const notes = typeof obj.notes === "string" ? obj.notes : undefined;
+
+    const missing: string[] = [];
+    if (!petName) missing.push("pet");
+    if (weightKg == null) missing.push("peso em kg");
+
+    if (missing.length === 0 && petName && weightKg != null && measuredAt) {
+      return {
+        intent: "weight",
+        pet_name: petName,
+        weight_kg: weightKg,
+        measured_at: measuredAt,
+        notes,
+      };
+    }
+    return {
+      intent: "unknown",
+      reason: `Identifiquei um registro de peso${petLabel}, mas faltou: ${missing.join(", ")}.`,
+    };
+  }
+
   return null;
 }
 
@@ -196,11 +230,13 @@ function buildSystemInstruction(petNames: string[]): string {
     "- vacina, vacinou, imunizou → intent=vaccine (uses vaccine_name, given_date, next_date)",
     "- remédio/medicamento/medicação + valor → intent=spending, category=medicine, description=med name, next_due if recurrence",
     "- comprei/gastei/paguei + valor → intent=spending",
+    "- pesou, pesagem, está com X kg, tem X kg, X quilos → intent=weight (uses weight_kg, measured_at; accept comma or dot decimal: '8,5kg' → 8.5)",
     "- No action described → intent=unknown with short reason",
     "",
     "REQUIRED FIELDS (if any is missing, downgrade to intent=unknown with a reason naming the missing field):",
     "- spending: pet_name, amount (number), category, spent_at",
     "- vaccine: pet_name, vaccine_name, given_date",
+    "- weight: pet_name, weight_kg (number), measured_at",
     "",
     "CHECKLIST (walk through this mentally before you respond):",
     "- Step 1: What is the pet_name? Match it to the user's pet list.",
@@ -241,6 +277,12 @@ function buildSystemInstruction(petNames: string[]): string {
     "",
     '10. Input: "Poli tomou remédio" (no value, no med name)',
     `    Output: {"intents":[{"intent":"unknown","reason":"Identifiquei um remédio para Poli mas faltou o valor e o nome do medicamento."}]}`,
+    "",
+    '11. Input: "Poli se pesou e tem 8,5kg hoje"',
+    `    Output: {"intents":[{"intent":"weight","pet_name":"Poli","weight_kg":8.5,"measured_at":"${today}"}]}`,
+    "",
+    '12. Input: "Rex está com 12kg"',
+    `    Output: {"intents":[{"intent":"weight","pet_name":"Rex","weight_kg":12,"measured_at":"${today}"}]}`,
     "",
     "When the input is audio: transcribe first (copy the transcript to the `transcript` field), then extract intents from the transcript using the same rules.",
   ].join("\n");
@@ -378,6 +420,9 @@ export async function parseInput(
       }
       if (p.intent === "vaccine") {
         return `v|${p.pet_name}|${p.vaccine_name}|${p.given_date}`;
+      }
+      if (p.intent === "weight") {
+        return `w|${p.pet_name}|${p.weight_kg}|${p.measured_at}`;
       }
       return `u|${p.reason}`;
     };

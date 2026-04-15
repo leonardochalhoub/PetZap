@@ -202,6 +202,12 @@ export type Messages = {
     weightInitial: string;
     weightInitialHint: string;
   };
+  common: {
+    edit: string;
+    save: string;
+    saving: string;
+    cancel: string;
+  };
   vaccines: {
     heading: string;
     emptyInline: string;
@@ -217,6 +223,10 @@ export type Messages = {
     next: string;
     deleteBtn: string;
     deleteConfirm: string;
+    nameLabel: string;
+    givenLabel: string;
+    nextLabel: string;
+    notesLabel: string;
   };
   spendings: {
     heading: string;
@@ -240,6 +250,10 @@ export type Messages = {
     repeatHint: string;
     nextDue: string;
     nextDueShort: string;
+    amountLabel: string;
+    categoryLabel: string;
+    spentAtLabel: string;
+    descriptionLabel: string;
   };
   whatsapp: {
     title: string;
@@ -321,9 +335,9 @@ export const en: Messages = {
   theme: { toggle: "Toggle theme", light: "Light mode", dark: "Dark mode" },
   hero: {
     eyebrow: "Pet care, made effortless",
-    title: "Track your pet's care, by tap or by text",
+    title: "Track your pet's care — by tap, text, or voice",
     subtitle:
-      "Vaccines, spending, and reminders — add by tap or by WhatsApp; get email and WhatsApp alerts for important dates like vaccines and medications.",
+      "Vaccines, spending, weight, and reminders — add manually or send a text or voice note on Telegram; get email alerts for important dates like vaccines and medications.",
     ctaPrimary: "Get started free",
     ctaSecondary: "Sign in",
     carouselAlt: "Pet care moments",
@@ -526,6 +540,12 @@ export const en: Messages = {
     weightInitial: "Current weight (kg, optional)",
     weightInitialHint: "You can also add weights later to track changes over time.",
   },
+  common: {
+    edit: "Edit",
+    save: "Save",
+    saving: "Saving...",
+    cancel: "Cancel",
+  },
   vaccines: {
     heading: "Vaccines",
     emptyInline: "No vaccines recorded yet.",
@@ -541,6 +561,10 @@ export const en: Messages = {
     next: "Next",
     deleteBtn: "Delete",
     deleteConfirm: "Delete this vaccine record?",
+    nameLabel: "Name",
+    givenLabel: "Given",
+    nextLabel: "Next",
+    notesLabel: "Notes",
   },
   spendings: {
     heading: "Spendings",
@@ -564,6 +588,10 @@ export const en: Messages = {
     repeatHint: "We'll email you 2 weeks and 1 week before the next dose.",
     nextDue: "Next dose date",
     nextDueShort: "Next:",
+    amountLabel: "Amount",
+    categoryLabel: "Category",
+    spentAtLabel: "Date",
+    descriptionLabel: "Description",
   },
   whatsapp: {
     title: "WhatsApp",
