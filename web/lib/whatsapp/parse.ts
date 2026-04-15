@@ -60,6 +60,48 @@ export type ParserInput =
   | { text: string }
   | { audio: { bytes: Buffer; mime: string } };
 
+/**
+ * Turn a partially-filled intent (e.g. spending without amount) into an
+ * `unknown` intent with a human-friendly reason that tells the user exactly
+ * which field is missing. Returns null if the intent looks totally malformed.
+ */
+function rescuePartialIntent(raw: unknown): ParsedIntent | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const intent = typeof obj.intent === "string" ? obj.intent : null;
+  const petName = typeof obj.pet_name === "string" ? obj.pet_name : null;
+  const petLabel = petName ? ` (${petName})` : "";
+
+  if (intent === "spending") {
+    const missing: string[] = [];
+    if (typeof obj.amount !== "number") missing.push("valor em reais");
+    if (typeof obj.category !== "string") missing.push("categoria");
+    if (typeof obj.spent_at !== "string") missing.push("data");
+    if (!petName) missing.push("pet");
+    if (missing.length) {
+      return {
+        intent: "unknown",
+        reason: `Identifiquei um gasto${petLabel}, mas faltou: ${missing.join(", ")}. Pode repetir mencionando o valor?`,
+      };
+    }
+  }
+
+  if (intent === "vaccine") {
+    const missing: string[] = [];
+    if (typeof obj.vaccine_name !== "string") missing.push("nome da vacina");
+    if (typeof obj.given_date !== "string") missing.push("data");
+    if (!petName) missing.push("pet");
+    if (missing.length) {
+      return {
+        intent: "unknown",
+        reason: `Identifiquei uma vacina${petLabel}, mas faltou: ${missing.join(", ")}. Pode repetir com todos os detalhes?`,
+      };
+    }
+  }
+
+  return null;
+}
+
 function buildSystemInstruction(petNames: string[]): string {
   const today = new Date().toISOString().slice(0, 10);
   const petsLine = petNames.length
@@ -180,10 +222,23 @@ export async function parseInput(
 
     const good: ParsedIntents = [];
     const rejected: { raw: unknown; issue: string }[] = [];
+
     for (const raw of rawIntents) {
       const r = ParsedIntentSchema.safeParse(raw);
-      if (r.success) good.push(r.data);
-      else rejected.push({ raw, issue: r.error.issues[0]?.message ?? "invalid" });
+      if (r.success) {
+        good.push(r.data);
+        continue;
+      }
+
+      // Gemini frequently emits partial intents (e.g. spending without amount)
+      // even when the prompt says to downgrade to unknown. Rescue by converting
+      // known-but-incomplete intents into unknown with a user-friendly reason.
+      const rescued = rescuePartialIntent(raw);
+      if (rescued) {
+        good.push(rescued);
+      } else {
+        rejected.push({ raw, issue: r.error.issues[0]?.message ?? "invalid" });
+      }
     }
 
     if (rejected.length > 0) {
