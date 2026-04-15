@@ -114,9 +114,23 @@ async function callGemini(input: ParserInput, petNames: string[]): Promise<unkno
   });
 
   if ("audio" in input) {
+    // Gemini rejects MIME types with parameters (e.g. "audio/ogg; codecs=opus").
+    // Keep only the base type; also normalise a couple of aliases Telegram hands us.
+    const baseMime = (input.audio.mime.split(";")[0] ?? "").trim().toLowerCase();
+    const normalisedMime =
+      baseMime === "audio/oga" || baseMime === "audio/opus"
+        ? "audio/ogg"
+        : baseMime || "audio/ogg";
+
+    log.info("parse.audio_in", {
+      originalMime: input.audio.mime,
+      normalisedMime,
+      bytes: input.audio.bytes.byteLength,
+    });
+
     const audioPart = {
       inlineData: {
-        mimeType: input.audio.mime,
+        mimeType: normalisedMime,
         data: input.audio.bytes.toString("base64"),
       },
     };
