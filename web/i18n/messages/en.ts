@@ -44,6 +44,7 @@ export type Messages = {
     dashboard: string;
     pets: string;
     whatsapp: string;
+    telegram: string;
     signOut: string;
     signIn: string;
     signUp: string;
@@ -261,6 +262,23 @@ export type Messages = {
     unlinking: string;
     unlinkConfirm: string;
   };
+  telegram: {
+    title: string;
+    subtitle: string;
+    howItWorks: string;
+    step1: string;
+    step2: string;
+    step3: string;
+    generateLink: string;
+    generating: string;
+    openTelegram: string;
+    afterStartHint: string;
+    linkedAccount: string;
+    verified: string;
+    unlink: string;
+    unlinking: string;
+    unlinkConfirm: string;
+  };
   species: { dog: string; cat: string; bird: string; rabbit: string; other: string };
   speciesGendered: {
     dog: { male: string; female: string };
@@ -345,6 +363,7 @@ export const en: Messages = {
     dashboard: "Dashboard",
     pets: "Pets",
     whatsapp: "WhatsApp",
+    telegram: "Telegram",
     signOut: "Sign out",
     signIn: "Sign in",
     signUp: "Sign up",
@@ -566,6 +585,23 @@ export const en: Messages = {
     unlink: "Unlink phone",
     unlinking: "Unlinking...",
     unlinkConfirm: "Unlink this phone?",
+  },
+  telegram: {
+    title: "Telegram",
+    subtitle: "Link your Telegram account to log vaccines and spendings by chat.",
+    howItWorks: "How it works:",
+    step1: "Generate a link below.",
+    step2: "Open Telegram and tap Start on the bot.",
+    step3: "Come back here — your account is linked. Now message the bot anytime.",
+    generateLink: "Generate link",
+    generating: "Generating...",
+    openTelegram: "Open in Telegram",
+    afterStartHint: "After you tap Start in Telegram, reload this page to see the verified status.",
+    linkedAccount: "Linked Telegram account",
+    verified: "Verified",
+    unlink: "Unlink Telegram",
+    unlinking: "Unlinking...",
+    unlinkConfirm: "Unlink this Telegram account?",
   },
   species: {
     dog: "Dog",

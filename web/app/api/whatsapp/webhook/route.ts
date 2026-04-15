@@ -69,19 +69,12 @@ export async function POST(req: NextRequest) {
 
     const entries = (payload as { entry?: unknown[] })?.entry ?? [];
 
-    // TEMP DIAGNOSTIC: log entire payload so we can see status events (delivered/failed/read)
-    console.log("[whatsapp.webhook] payload", JSON.stringify(payload));
-
     for (const entry of entries) {
       const changes = (entry as { changes?: unknown[] })?.changes ?? [];
       for (const change of changes) {
         const value = (change as { value?: unknown })?.value as
-          | { messages?: unknown[]; statuses?: unknown[] }
+          | { messages?: unknown[] }
           | undefined;
-        // TEMP DIAGNOSTIC: log status events explicitly
-        if (value?.statuses) {
-          console.log("[whatsapp.webhook] STATUS", JSON.stringify(value.statuses));
-        }
         const messages = value?.messages ?? [];
 
         for (const msg of messages) {
