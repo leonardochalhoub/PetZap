@@ -2,10 +2,18 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import {
   ParsedIntentSchema,
   ParsedIntentsSchema,
+  SpendingCategory,
   type ParsedIntent,
   type ParsedIntents,
+  type SpendingCategory as SpendingCategoryType,
 } from "./schemas";
 import { log } from "@/lib/log";
+import {
+  extractAmount,
+  extractRelativeNextDue,
+  extractSpentAt,
+  inferCategory,
+} from "@/lib/intent/heuristics";
 
 /**
  * Multi-intent parser. A single user message (text or voice) can yield
@@ -48,6 +56,9 @@ const intentSchemaForGemini = {
 const rootSchemaForGemini = {
   type: SchemaType.OBJECT,
   properties: {
+    // Populated by the model when the input is audio — the verbatim transcript.
+    // For text inputs it's unused; we pass through the original text instead.
+    transcript: { type: SchemaType.STRING, nullable: true },
     intents: {
       type: SchemaType.ARRAY,
       items: intentSchemaForGemini,
@@ -61,42 +72,91 @@ export type ParserInput =
   | { audio: { bytes: Buffer; mime: string } };
 
 /**
- * Turn a partially-filled intent (e.g. spending without amount) into an
- * `unknown` intent with a human-friendly reason that tells the user exactly
- * which field is missing. Returns null if the intent looks totally malformed.
+ * Turn a partially-filled intent (e.g. spending without amount) into a valid
+ * intent by rescuing missing fields from the original text via regex
+ * heuristics. Only falls through to `unknown` when heuristics can't fill the
+ * gaps — in which case the reason names exactly what's missing.
  */
-function rescuePartialIntent(raw: unknown): ParsedIntent | null {
+function rescuePartialIntent(raw: unknown, originalText: string): ParsedIntent | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
   const intent = typeof obj.intent === "string" ? obj.intent : null;
   const petName = typeof obj.pet_name === "string" ? obj.pet_name : null;
   const petLabel = petName ? ` (${petName})` : "";
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   if (intent === "spending") {
+    const amount =
+      typeof obj.amount === "number" && obj.amount > 0
+        ? obj.amount
+        : extractAmount(originalText);
+    const description = typeof obj.description === "string" ? obj.description : null;
+    const rawCategory = typeof obj.category === "string" ? obj.category : null;
+    const parsedCategory = rawCategory ? SpendingCategory.safeParse(rawCategory) : null;
+    const category: SpendingCategoryType | null =
+      parsedCategory?.success ? parsedCategory.data : inferCategory(originalText, description);
+    const spentAt =
+      typeof obj.spent_at === "string"
+        ? obj.spent_at
+        : (extractSpentAt(originalText, todayIso) ?? todayIso);
+    const nextDue =
+      typeof obj.next_due === "string"
+        ? obj.next_due
+        : extractRelativeNextDue(originalText, spentAt);
+
     const missing: string[] = [];
-    if (typeof obj.amount !== "number") missing.push("valor em reais");
-    if (typeof obj.category !== "string") missing.push("categoria");
-    if (typeof obj.spent_at !== "string") missing.push("data");
     if (!petName) missing.push("pet");
-    if (missing.length) {
+    if (amount == null) missing.push("valor em reais");
+    if (!category) missing.push("categoria");
+
+    if (missing.length === 0 && petName && amount != null && category && spentAt) {
       return {
-        intent: "unknown",
-        reason: `Identifiquei um gasto${petLabel}, mas faltou: ${missing.join(", ")}. Pode repetir mencionando o valor?`,
+        intent: "spending",
+        pet_name: petName,
+        amount,
+        category,
+        spent_at: spentAt,
+        description: description ?? undefined,
+        next_due: nextDue ?? null,
       };
     }
+    return {
+      intent: "unknown",
+      reason: `Identifiquei um gasto${petLabel}, mas faltou: ${missing.join(", ")}. Pode repetir mencionando o valor?`,
+    };
   }
 
   if (intent === "vaccine") {
+    const givenDate =
+      typeof obj.given_date === "string"
+        ? obj.given_date
+        : (extractSpentAt(originalText, todayIso) ?? null);
+    const vaccineName = typeof obj.vaccine_name === "string" ? obj.vaccine_name : null;
+    const nextDate =
+      typeof obj.next_date === "string"
+        ? obj.next_date
+        : (givenDate ? extractRelativeNextDue(originalText, givenDate) : null);
+    const notes = typeof obj.notes === "string" ? obj.notes : undefined;
+
     const missing: string[] = [];
-    if (typeof obj.vaccine_name !== "string") missing.push("nome da vacina");
-    if (typeof obj.given_date !== "string") missing.push("data");
     if (!petName) missing.push("pet");
-    if (missing.length) {
+    if (!vaccineName) missing.push("nome da vacina");
+    if (!givenDate) missing.push("data");
+
+    if (missing.length === 0 && petName && vaccineName && givenDate) {
       return {
-        intent: "unknown",
-        reason: `Identifiquei uma vacina${petLabel}, mas faltou: ${missing.join(", ")}. Pode repetir com todos os detalhes?`,
+        intent: "vaccine",
+        pet_name: petName,
+        vaccine_name: vaccineName,
+        given_date: givenDate,
+        next_date: nextDate,
+        notes,
       };
     }
+    return {
+      intent: "unknown",
+      reason: `Identifiquei uma vacina${petLabel}, mas faltou: ${missing.join(", ")}. Pode repetir com todos os detalhes?`,
+    };
   }
 
   return null;
@@ -142,6 +202,15 @@ function buildSystemInstruction(petNames: string[]): string {
     "- spending: pet_name, amount (number), category, spent_at",
     "- vaccine: pet_name, vaccine_name, given_date",
     "",
+    "CHECKLIST (walk through this mentally before you respond):",
+    "- Step 1: What is the pet_name? Match it to the user's pet list.",
+    "- Step 2: What is the action? (comprei/gastei/paguei → spending · vacina/vacinou → vaccine · tomou remédio → spending category=medicine)",
+    "- Step 3: What is the amount? Look for any number followed by 'reais', 'R$', or after 'gastei/paguei/custou/valor'.",
+    "- Step 4: What is the category? Use the mapping above based on what was bought.",
+    "- Step 5: What is the date? 'hoje'=today, 'ontem'=yesterday, etc.",
+    "- Step 6: Is there a recurrence? 'próxima dose em X' → next_due (for spending) or next_date (for vaccine).",
+    "- Step 7: Emit one intent per distinct action in the message.",
+    "",
     "EXAMPLES:",
     '1. Input: "Rex tomou vacina antirrábica hoje, próxima em 1 ano"',
     `   Output: {"intents":[{"intent":"vaccine","pet_name":"Rex","vaccine_name":"antirrábica","given_date":"${today}","next_date":"(+1y)"}]}`,
@@ -161,19 +230,34 @@ function buildSystemInstruction(petNames: string[]): string {
     '6. Input: "Rex tomou V10 hoje e comprei ração 80 reais"',
     `   Output: {"intents":[{"intent":"vaccine","pet_name":"Rex","vaccine_name":"V10","given_date":"${today}","next_date":null},{"intent":"spending","pet_name":"Rex","amount":80,"category":"food","spent_at":"${today}","description":"ração"}]}`,
     "",
-    '7. Input: "Poli tomou remédio" (no value, no med name)',
-    `   Output: {"intents":[{"intent":"unknown","reason":"Identifiquei um remédio para Poli mas faltou o valor e o nome do medicamento."}]}`,
+    '7. Input: "Comprei tapete higiênico para Poli, 45 reais"',
+    `   Output: {"intents":[{"intent":"spending","pet_name":"Poli","amount":45,"category":"hygiene","spent_at":"${today}","description":"tapete higiênico"}]}`,
+    "",
+    '8. Input: "Levei o Rex no veterinário ontem, consulta custou 180"',
+    `   Output: {"intents":[{"intent":"spending","pet_name":"Rex","amount":180,"category":"vet","spent_at":"(+yesterday)","description":"consulta"}]}`,
+    "",
+    '9. Input: "Dei antipulgas pro Rex e pra Dora, 60 reais cada"',
+    `   Output: {"intents":[{"intent":"spending","pet_name":"Rex","amount":60,"category":"medicine","spent_at":"${today}","description":"antipulgas"},{"intent":"spending","pet_name":"Dora","amount":60,"category":"medicine","spent_at":"${today}","description":"antipulgas"}]}`,
+    "",
+    '10. Input: "Poli tomou remédio" (no value, no med name)',
+    `    Output: {"intents":[{"intent":"unknown","reason":"Identifiquei um remédio para Poli mas faltou o valor e o nome do medicamento."}]}`,
+    "",
+    "When the input is audio: transcribe first (copy the transcript to the `transcript` field), then extract intents from the transcript using the same rules.",
   ].join("\n");
 }
 
-async function callGemini(input: ParserInput, petNames: string[]): Promise<unknown> {
+async function callGemini(
+  input: ParserInput,
+  petNames: string[],
+): Promise<{ json: unknown; effectiveText: string }> {
   const apiKey = process.env.GEMINI_API_KEY!;
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    // gemini-2.0-flash hits the quality/quota sweet spot: 1000 requests/day
-    // free tier and strong enough at structured extraction. 2.5-flash is
-    // capped at 20/day (blocked us) and 2.5-flash-lite drops fields.
-    model: "gemini-2.0-flash",
+    // gemini-2.5-flash-lite is the only model reliably available to the
+    // project's free tier right now (2.5-flash = 20/day cap; 2.0-flash =
+    // limit 0 on this key). Lite is weaker at field extraction, so we
+    // pair it with regex-based amount/category rescue below.
+    model: "gemini-2.5-flash-lite",
     systemInstruction: buildSystemInstruction(petNames),
     generationConfig: {
       responseMimeType: "application/json",
@@ -209,17 +293,24 @@ async function callGemini(input: ParserInput, petNames: string[]): Promise<unkno
         data: input.audio.bytes.toString("base64"),
       },
     };
-    const textPart = { text: "Transcreva e extraia os registros deste áudio." };
+    const textPart = {
+      text: "Transcreva o áudio inteiro no campo `transcript` e extraia todos os registros no campo `intents`.",
+    };
     const result = await model.generateContent([textPart, audioPart]);
     const raw = result.response.text();
     log.info("parse.gemini_raw_audio", { raw: raw.slice(0, 2000) });
-    return JSON.parse(raw);
+    const json = JSON.parse(raw);
+    const transcript =
+      json && typeof json === "object" && typeof (json as Record<string, unknown>).transcript === "string"
+        ? ((json as Record<string, unknown>).transcript as string)
+        : "";
+    return { json, effectiveText: transcript };
   }
 
   const result = await model.generateContent(`Message: ${input.text}`);
   const raw = result.response.text();
   log.info("parse.gemini_raw", { raw: raw.slice(0, 2000) });
-  return JSON.parse(raw);
+  return { json: JSON.parse(raw), effectiveText: input.text };
 }
 
 export async function parseInput(
@@ -227,7 +318,7 @@ export async function parseInput(
   petNames: string[],
 ): Promise<ParsedIntents> {
   try {
-    const json = await callGemini(input, petNames);
+    const { json, effectiveText } = await callGemini(input, petNames);
 
     // Accept both the expected { intents: [...] } and a bare array Gemini sometimes emits
     // despite the responseSchema, plus a bare object (single intent).
@@ -246,6 +337,7 @@ export async function parseInput(
 
     log.info("parse.intents_pre_validation", {
       count: rawIntents.length,
+      effectiveTextPreview: effectiveText.slice(0, 200),
       preview: JSON.stringify(rawIntents).slice(0, 500),
     });
 
@@ -259,10 +351,10 @@ export async function parseInput(
         continue;
       }
 
-      // Gemini frequently emits partial intents (e.g. spending without amount)
-      // even when the prompt says to downgrade to unknown. Rescue by converting
-      // known-but-incomplete intents into unknown with a user-friendly reason.
-      const rescued = rescuePartialIntent(raw);
+      // Gemini-lite drops required fields (especially amount). Rescue by
+      // regex-extracting from the original text / audio transcript before
+      // falling through to a user-facing "what's missing" message.
+      const rescued = rescuePartialIntent(raw, effectiveText);
       if (rescued) {
         good.push(rescued);
       } else {
