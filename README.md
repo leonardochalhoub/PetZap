@@ -4,8 +4,11 @@
 
 **The easiest way to keep your pet's health, spending, and vaccine schedule in one place.**
 
-Full-stack SaaS for pet owners — built with Next.js 16, Supabase, and a WhatsApp-first data capture flow.
+Full-stack SaaS for pet owners — add records by tap, text, or voice note via Telegram. Built with Next.js 16, Supabase, and Gemini.
 
+### [🔗 Live app — pet-zap.vercel.app](https://pet-zap.vercel.app)
+
+[![Live](https://img.shields.io/badge/live-pet--zap.vercel.app-brightgreen?logo=vercel&logoColor=white)](https://pet-zap.vercel.app)
 [![CI](https://github.com/leonardochalhoub/PetZap/actions/workflows/ci.yml/badge.svg)](https://github.com/leonardochalhoub/PetZap/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
@@ -51,7 +54,9 @@ PetZap is a multi-tenant pet management app designed for **100 users on free-tie
 | **Vaccines** | Schedule + history with next-dose calculation. One-click "+1 year" for annual doses. |
 | **Spendings** | Categorized expenses (food, medication, hygiene, etc.) with charts and 6-month projections. |
 | **Medications** | Recurring prescriptions with auto-calculated next-due dates. |
-| **WhatsApp capture** | Forward a message like _"comprei ração 120 reais"_ to the bot — Gemini parses it, saves the spending to the right pet. |
+| **Telegram capture (text + audio)** | Send a text or voice note like _"Comprei ração 120 reais para Poli hoje"_ to [@petzap_bot](https://t.me/petzap_bot) — Gemini transcribes + parses the intent; a regex safety net fills in anything the LLM drops. Multi-intent messages work: *"Rex tomou V10 e gastei 80 reais com ração"* creates two rows. |
+| **Weight tracking** | Log pet weight via the web app or Telegram (*"Poli se pesou e tem 8,5kg hoje"*). Trend chart per pet. |
+| **WhatsApp capture (parked)** | Meta webhook + HMAC verification code kept in the repo. Blocked in production because Meta's test number refuses delivery to Brazilian recipients (`error 130497`) — will re-enable once a verified business number is registered. |
 | **Email reminders** | Daily cron finds vaccines/meds due in 7 and 14 days, emails the owner. Idempotent via `reminders_sent`. |
 | **Dashboard** | 8 KPI tiles, Plotly spending chart, pie breakdown, weight delta chart, upcoming-alerts banner. |
 | **Data export** | One-click JSON dump of everything the user owns. Rate-limited, LGPD-friendly. |
@@ -273,11 +278,14 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" \
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | `https://<ref>.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Anon key — safe for client |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | **Server-only.** Used by admin client + cron |
-| `GEMINI_API_KEY` | yes | For WhatsApp NLU parsing |
-| `META_VERIFY_TOKEN` | for WhatsApp | Arbitrary string — must match Meta console |
-| `META_APP_SECRET` | for WhatsApp | From App Settings → Basic |
-| `META_PHONE_NUMBER_ID` | for WhatsApp | From WhatsApp API Setup |
-| `META_ACCESS_TOKEN` | for WhatsApp | Permanent System User token preferred |
+| `GEMINI_API_KEY` | yes | Intent extraction + audio transcription (gemini-2.5-flash-lite) |
+| `TELEGRAM_BOT_TOKEN` | yes | From [@BotFather](https://t.me/BotFather) on Telegram |
+| `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` | yes | Bot username (e.g. `petzap_bot`), used in the deep-link account-linking URL |
+| `TELEGRAM_WEBHOOK_SECRET` | yes | Random secret passed to Telegram `setWebhook` + verified on every incoming request |
+| `META_VERIFY_TOKEN` | optional (WhatsApp parked) | WhatsApp code is dormant; set only if re-enabling |
+| `META_APP_SECRET` | optional | Same as above |
+| `META_PHONE_NUMBER_ID` | optional | Same as above |
+| `META_ACCESS_TOKEN` | optional | Same as above |
 | `RESEND_API_KEY` | for email | From [resend.com/api-keys](https://resend.com/api-keys) |
 | `RESEND_FROM_EMAIL` | for email | Verified sender — e.g. `PetZap <no-reply@yourdomain.com>` |
 | `EMAIL_TEST_OVERRIDE` | dev only | Forces all outbound mail to this address (Resend free tier) |

@@ -125,6 +125,7 @@ function EditSpendingForm({
     (prev, fd) => updateSpending(spending.id, petId, prev, fd),
     undefined,
   );
+  const [category, setCategory] = useState<string>(spending.category);
 
   if (state?.data) {
     queueMicrotask(onDone);
@@ -134,6 +135,8 @@ function EditSpendingForm({
     "w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm text-stone-900 placeholder-stone-400 focus:border-stone-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-zinc-400";
 
   const currentAmount = (spending.amount_cents / 100).toFixed(2);
+  // next_due only applies to medications — mirror the Add dialog's behaviour.
+  const showNextDue = category === "medicine";
 
   return (
     <form action={formAction} className="space-y-3">
@@ -157,7 +160,8 @@ function EditSpendingForm({
           <select
             name="category"
             required
-            defaultValue={spending.category}
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
             className={`mt-1 ${inputClass}`}
           >
             {CATEGORY_KEYS.map((k) => (
@@ -177,15 +181,19 @@ function EditSpendingForm({
             className={`mt-1 ${inputClass}`}
           />
         </label>
-        <label className="block text-xs text-stone-600 dark:text-zinc-400">
-          {t.spendings.nextDue}
-          <input
-            name="next_due"
-            type="date"
-            defaultValue={spending.next_due ?? ""}
-            className={`mt-1 ${inputClass}`}
-          />
-        </label>
+        {showNextDue ? (
+          <label className="block text-xs text-stone-600 dark:text-zinc-400">
+            {t.spendings.nextDue}
+            <input
+              name="next_due"
+              type="date"
+              defaultValue={spending.next_due ?? ""}
+              className={`mt-1 ${inputClass}`}
+            />
+          </label>
+        ) : (
+          <input type="hidden" name="next_due" value="" />
+        )}
         <label className="block text-xs text-stone-600 dark:text-zinc-400 sm:col-span-2">
           {t.spendings.descriptionLabel}
           <input
